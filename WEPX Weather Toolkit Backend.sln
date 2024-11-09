@@ -1,0 +1,23 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.11.35327.3
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "WEPX Weather Toolkit Backend", "WEPX Weather Toolkit Backend.pyproj", "{AD5BD3B4-23C8-4BFC-98AD-0D68CF9E0066}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{AD5BD3B4-23C8-4BFC-98AD-0D68CF9E0066}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AD5BD3B4-23C8-4BFC-98AD-0D68CF9E0066}.Release|Any CPU.ActiveCfg = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {63A1DD47-0980-4057-BD4E-1C0E685E52B3}
+	EndGlobalSection
+EndGlobal
