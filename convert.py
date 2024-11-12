@@ -1,6 +1,8 @@
 import time
+import json
+import os
 import numpy as np
-from osgeo import gdal
+from osgeo import gdal, osr
 gdal.UseExceptions()
 from wand.image import Image
 
@@ -74,7 +76,88 @@ def float_to_rgb(arr, vmin, vmax):
     
     return rgb    
 
-def convertFromNCToPNG(inputFile="input.tif", exportFile="output.png", extent=[-125,24,-66,50], vmin=0, vmax=10, nodata=None):
+def get_raster_extent_in_lonlat(dataset, model, output_file="model_extent.json"):
+    """
+    Get the extent of a raster in longitude and latitude (WGS84).
+
+    This function opens a raster file, extracts its extent, and checks the
+    coordinate reference system (CRS). If the raster is not already in a 
+    geographic CRS (like WGS84, in degrees of lon/lat), it converts the extent 
+    from the raster's CRS to WGS84. Then output it to a file.
+
+    Save the raster extent to a JSON file. If the model key exists, update its value.
+    Otherwise, append the model key with the new value.
+
+    Parameters:
+    - GDAL dataset: dataset of raster to analyze
+    - model (str): model name for indexing in file 
+    - output_file (str): output file name for extent
+                         if None, will not output file
+
+    Returns:
+    - list: A tuple list representing the extent (xmin, ymin, xmax, ymax) in 
+             longitude and latitude.
+    - file: A json file containing the model name and the extent if output_file is
+            not None
+
+    If the raster is already in lon/lat, the function returns the extent as is.
+    Otherwise, it transforms the extent to lon/lat.
+    """
+
+    # Get the raster's geotransform and projection
+    geotransform = dataset.GetGeoTransform()
+    projection = dataset.GetProjection()
+    
+    # Extract extent in the original CRS (coordinate reference system)
+    x_min = geotransform[0]
+    y_max = geotransform[3]
+    x_max = x_min + geotransform[1] * dataset.RasterXSize
+    y_min = y_max + geotransform[5] * dataset.RasterYSize
+    extent = (x_min, y_min, x_max, y_max)
+    
+    # Get spatial reference of the raster
+    src_srs = osr.SpatialReference()
+    src_srs.ImportFromWkt(projection)
+    
+    # Check if the raster is already in lon/lat (e.g., WGS84)
+    if src_srs.IsGeographic():
+        # The extent is already in lon/lat
+        return extent
+    else:
+        # Convert the extent to lon/lat (WGS84)
+        tgt_srs = osr.SpatialReference()
+        tgt_srs.ImportFromEPSG(4326)  # WGS84 EPSG code
+        
+        # Create a coordinate transformation
+        transform = osr.CoordinateTransformation(src_srs, tgt_srs)
+        
+        # Transform each corner point of the extent
+        lonlat_min = transform.TransformPoint(x_min, y_min)
+        lonlat_max = transform.TransformPoint(x_max, y_max)
+        
+        extent = [lonlat_min[1], lonlat_max[1], lonlat_min[0], lonlat_max[0], ]
+
+        if not (output_file == None):
+            # Check if the JSON file exists
+            if os.path.exists(output_file):
+                # Load the existing JSON data
+                with open(output_file, 'r') as f:
+                    data = json.load(f)
+            else:
+                # If the file doesn't exist, create an empty dictionary
+                data = {}
+                
+                # Update or add the model_name key with the extent value
+                data[model] = [extent[0],extent[1],extent[2],extent[3]]
+
+           # Save the updated data back to the JSON file
+            with open(output_file, 'w') as f:
+                json.dump(data, f, indent=4)
+
+        # Return the extent in lon/lat
+        return extent
+
+def convertFromNCToPNG(inputFile="input.tif", exportFile="output.png", extent=None, vmin=0, vmax=10, nodata=None, model=None):
     '''
     Converts a NetCDF (or GeoTIFF) file to a grayscale PNG.
 
@@ -93,6 +176,9 @@ def convertFromNCToPNG(inputFile="input.tif", exportFile="output.png", extent=[-
     vmax (float): The maximum value in the input data. Values equal to `vmax` 
                   will be mapped to 255 in the PNG.
     nodata (float): The value representing no data in the input file.
+    model (str): (optional) model name for extent name
+                 if extent not set, model use for render setting the extent
+                 in a file and naming it
 
     Returns:
     None: The output is saved as a PNG file specified by `exportFile`.
@@ -111,6 +197,9 @@ def convertFromNCToPNG(inputFile="input.tif", exportFile="output.png", extent=[-
 
     #arrange array to rgb standards
     rgb_array = float_to_rgb(data_array, vmin, vmax)
+
+    if (extent==None):
+        extent = get_raster_extent_in_lonlat(dataset, model)
 
     # Create an in-memory dataset to hold the RGB data
     driver = gdal.GetDriverByName('MEM')

@@ -17,6 +17,9 @@ vmaxDict = {"DPT":60,
             "RETOP":25
             }
 
+#extent of full output
+#extent=[-143.261719,13.410994,-39.023438,60.930432]
+
 download.timeToDownload = 59;
 
 def processModel(model, timeOutput,current_time):
@@ -60,7 +63,7 @@ def processModel(model, timeOutput,current_time):
             pngFile = str(".".join(files.split(".")[:-1]))+".png"
             webpFile = str(".".join(files.split(".")[:-1]))+".webp"
             print("convert to PNG")
-            convert.convertFromNCToPNG(files, pngFile, vmin=vminDict[variable[i]],vmax=vmaxDict[variable[i]])
+            convert.convertFromNCToPNG(files, pngFile, vmin=vminDict[variable[i]],vmax=vmaxDict[variable[i]], model=model)
             print("convert to WEBP")
             convert.convertToWEBP(pngFile,webpFile)
     
