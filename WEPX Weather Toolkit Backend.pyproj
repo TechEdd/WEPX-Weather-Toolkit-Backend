@@ -24,6 +24,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="convert.py" />
+    <Compile Include="createMapSVG.py" />
     <Compile Include="WEPX_Weather_Toolkit_Backend.py" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
