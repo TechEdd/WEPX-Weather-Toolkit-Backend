@@ -20,7 +20,8 @@ vmaxDict = {"DPT":60,
 #extent of full output
 #extent=[-143.261719,13.410994,-39.023438,60.930432]
 
-download.timeToDownload = 59;
+download.timeToDownload = 59
+convert.export_json = True
 
 def processModel(model, timeOutput,current_time):
     """
