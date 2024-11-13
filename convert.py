@@ -7,6 +7,8 @@ gdal.UseExceptions()
 from wand.image import Image
 
 debug = True
+export_json = True
+file_width_resolution = 3000
 
 def convertToWEBP(inputFile="input.png", exportFile="output.webp"):
     '''
@@ -113,57 +115,92 @@ def get_raster_extent_in_lonlat(dataset, model, output_file="model_extent.json")
     y_max = geotransform[3]
     x_max = x_min + geotransform[1] * dataset.RasterXSize
     y_min = y_max + geotransform[5] * dataset.RasterYSize
-    extent = (x_min, y_min, x_max, y_max)
     
-    # Get spatial reference of the raster
+    # Get the spatial reference of the raster
     src_srs = osr.SpatialReference()
     src_srs.ImportFromWkt(projection)
-    
+
     # Check if the raster is already in lon/lat (e.g., WGS84)
     if src_srs.IsGeographic():
         # The extent is already in lon/lat
-        return extent
+        extent = [y_min, y_max, x_min, y_max]
     else:
-        # Convert the extent to lon/lat (WGS84)
+        # Define the four corner points
+        corners = [
+            (x_min, y_max),  # Upper-left
+            (x_max, y_max),  # Upper-right
+            (x_min, y_min),  # Lower-left
+            (x_max, y_min)   # Lower-right
+        ]
+    
+        
+    
+        # Define the target spatial reference (WGS84 / EPSG:4326)
         tgt_srs = osr.SpatialReference()
-        tgt_srs.ImportFromEPSG(4326)  # WGS84 EPSG code
-        
-        # Create a coordinate transformation
+        tgt_srs.ImportFromEPSG(4326)  # EPSG:4326 (WGS84)
+    
+        # Create a coordinate transformation object
         transform = osr.CoordinateTransformation(src_srs, tgt_srs)
-        
-        # Transform each corner point of the extent
-        lonlat_min = transform.TransformPoint(x_min, y_min)
-        lonlat_max = transform.TransformPoint(x_max, y_max)
-        
-        extent = [lonlat_min[1], lonlat_max[1], lonlat_min[0], lonlat_max[0], ]
+    
+        # Transform each corner to lon/lat
+        transformed_corners = [transform.TransformPoint(x, y) for x, y in corners]
+    
+        # Extract the lon/lat values and find min/max
+        lons = [pt[0] for pt in transformed_corners]
+        lats = [pt[1] for pt in transformed_corners]
+    
+        lon_min, lon_max = min(lons), max(lons)
+        lat_min, lat_max = min(lats), max(lats)
 
-        if not (output_file == None):
-            # Check if the JSON file exists
-            if os.path.exists(output_file):
-                # Load the existing JSON data
-                with open(output_file, 'r') as f:
-                    data = json.load(f)
-            else:
-                # If the file doesn't exist, create an empty dictionary
-                data = {}
+        extent = [lon_min, lon_max, lat_min, lat_max]
+
+    if (output_file != None or export_json == True):
+        # Check if the JSON file exists
+        if os.path.exists(output_file):
+            # Load the existing JSON data
+            with open(output_file, 'r') as f:
+                data = json.load(f)
+        else:
+            # If the file doesn't exist, create an empty dictionary
+            data = {}
                 
-                # Update or add the model_name key with the extent value
-                data[model] = [extent[0],extent[1],extent[2],extent[3]]
+            # Update or add the model_name key with the extent value
+            data[model] = [extent[0],extent[1],extent[2],extent[3]]
 
-           # Save the updated data back to the JSON file
-            with open(output_file, 'w') as f:
-                json.dump(data, f, indent=4)
+        # Save the updated data back to the JSON file
+        with open(output_file, 'w') as f:
+            json.dump(data, f, indent=4)
 
         # Return the extent in lon/lat
         return extent
 
-def convertFromNCToPNG(inputFile="input.tif", exportFile="output.png", extent=None, vmin=0, vmax=10, nodata=None, model=None):
+def calculateAspectRatio(extent):
+    """
+    Calculate the aspect ratio (width / height) of the raster from its extent.
+    """
+    x_min, x_max, y_min, y_max = tuple(extent)
+    
+    # Calculate width and height
+    width = x_max - x_min  # Distance in the X direction (longitude or X axis)
+    height = y_max - y_min  # Distance in the Y direction (latitude or Y axis)
+    
+    # Aspect ratio = width / height
+    if height != 0:  # Prevent division by zero
+        aspect_ratio = width / height
+    else:
+        aspect_ratio = None  # Undefined aspect ratio
+    
+    return aspect_ratio
+
+def convertFromNCToPNG(inputFile="input.tif", exportFile="output.png", extent=None, vmin=0, vmax=10, nodata=None, model=None, width=None):
     '''
     Converts a NetCDF (or GeoTIFF) file to a grayscale PNG.
 
     This function processes only the first raster band of the input file. 
-    Values in the output PNG will range from 0 to 255, with data below `vmin`
-    and above `vmax` being capped to 0 and 255, respectively.
+    Values are set in a RGB array which contains 256-base of the raster base
+    giving a 24-bit image that can afterwards be processed.
+    Calculates automatically width
+
 
     Parameters:
     inputFile (str): The file name of the NetCDF or GeoTIFF input file.
@@ -209,14 +246,22 @@ def convertFromNCToPNG(inputFile="input.tif", exportFile="output.png", extent=No
     # Write the RGB bands to the dataset
     for i in range(3):  # R, G, B
         rgb_dataset.GetRasterBand(i + 1).WriteArray(rgb_array[:, :, i])
+    
+    # determine height
+    if (width != None):
+        width_resolution = width
+    else:
+        width_resolution = file_width_resolution
+    
+    height_resolution = width_resolution/calculateAspectRatio(extent)
 
     gdal.Translate(
         exportFile,
         rgb_dataset,
         outputSRS="EPSG:4326", #Equirectangular
         outputBounds=extent,
-        width="3000",
-        height="1322",
+        width=width_resolution,
+        height=height_resolution,
         noData=nodata,
         outputType=gdal.GDT_Byte, # 8 bits
         creationOptions=['ZLEVEL=1'], #Set the amount of time to spend on compression. A value of 1 is fast but does no compression, and a value of 9 is slow but does the best compression.
