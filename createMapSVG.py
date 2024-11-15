@@ -3,7 +3,10 @@ import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 
 
-extent = [-125,-66, 24, 50]
+extent = [-134.12142793280148,
+        -60.92779791187436,
+        21.14706163554821,
+        52.62870288555903]
 
 # Create a figure with a specific size and equirectangular projection
 fig, ax = plt.subplots(figsize=(12, 8), 
