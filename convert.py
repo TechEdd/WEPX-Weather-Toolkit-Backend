@@ -9,6 +9,7 @@ from wand.image import Image
 debug = True
 export_json = True
 file_width_resolution = 3000
+output_json_file = "model_extent.json"
 
 def convertToWEBP(inputFile="input.png", exportFile="output.webp"):
     '''
@@ -78,14 +79,29 @@ def float_to_rgb(arr, vmin, vmax):
     
     return rgb    
 
-def get_raster_extent_in_lonlat(dataset, model, output_file="model_extent.json"):
+def saveToJSON(extent, output_file, model):
+    # Check if the JSON file exists
+        if os.path.exists(output_file):
+            # Load the existing JSON data
+            with open(output_file, 'r') as f:
+                data = json.load(f)
+        else:
+            # If the file doesn't exist, create an empty dictionary
+            data = {}
+                
+        # Update or add the model_name key with the extent value
+        data[model] = [extent[0],extent[1],extent[2],extent[3]]
+
+        # Save the updated data back to the JSON file
+        with open(output_file, 'w') as f:
+            json.dump(data, f, indent=4)
+
+def get_raster_extent_in_lonlat(dataset, model, output_file=output_json_file):
     """
     Get the extent of a raster in longitude and latitude (WGS84).
 
-    This function opens a raster file, extracts its extent, and checks the
-    coordinate reference system (CRS). If the raster is not already in a 
-    geographic CRS (like WGS84, in degrees of lon/lat), it converts the extent 
-    from the raster's CRS to WGS84. Then output it to a file.
+    This function opens a raster file and iterates to find the true highest and lowest
+    lons and lats.
 
     Save the raster extent to a JSON file. If the model key exists, update its value.
     Otherwise, append the model key with the new value.
@@ -110,75 +126,91 @@ def get_raster_extent_in_lonlat(dataset, model, output_file="model_extent.json")
     geotransform = dataset.GetGeoTransform()
     projection = dataset.GetProjection()
     
+    # Get dataset dimensions
+    x_size = dataset.RasterXSize
+    y_size = dataset.RasterYSize
+
     # Extract extent in the original CRS (coordinate reference system)
     x_min = geotransform[0]
     y_max = geotransform[3]
-    x_max = x_min + geotransform[1] * dataset.RasterXSize
-    y_min = y_max + geotransform[5] * dataset.RasterYSize
+    x_max = x_min + geotransform[1] * x_size
+    y_min = y_max + geotransform[5] * y_size
     
-    # Get the spatial reference of the raster
-    src_srs = osr.SpatialReference()
-    src_srs.ImportFromWkt(projection)
+    # Define the source projection
+    source_proj = osr.SpatialReference()
+    source_proj.ImportFromWkt(dataset.GetProjection())
 
-    # Check if the raster is already in lon/lat (e.g., WGS84)
-    if src_srs.IsGeographic():
-        # The extent is already in lon/lat
-        extent = [y_min, y_max, x_min, y_max]
-    else:
-        # Define the four corner points
-        corners = [
-            (x_min, y_max),  # Upper-left
-            (x_max, y_max),  # Upper-right
-            (x_min, y_min),  # Lower-left
-            (x_max, y_min)   # Lower-right
-        ]
-    
-        
-    
-        # Define the target spatial reference (WGS84 / EPSG:4326)
-        tgt_srs = osr.SpatialReference()
-        tgt_srs.ImportFromEPSG(4326)  # EPSG:4326 (WGS84)
-    
-        # Create a coordinate transformation object
-        transform = osr.CoordinateTransformation(src_srs, tgt_srs)
-    
-        # Transform each corner to lon/lat
-        transformed_corners = [transform.TransformPoint(x, y) for x, y in corners]
-    
-        # Extract the lon/lat values and find min/max
-        lons = [pt[0] for pt in transformed_corners]
-        lats = [pt[1] for pt in transformed_corners]
-    
-        lon_min, lon_max = min(lons), max(lons)
-        lat_min, lat_max = min(lats), max(lats)
+    if source_proj.IsGeographic():
+        # Return the extent using the geotransform if already in lat/lon (WGS84)
+        lon_max = geotransform[0]
+        lon_min = geotransform[0] + dataset.RasterXSize * geotransform[1]
+        lat_max = geotransform[3]
+        lat_min = geotransform[3] + dataset.RasterYSize * geotransform[5]
+        extent = [lat_min, lon_min, lat_max, lon_max]
 
-        extent = [lon_min, lon_max, lat_min, lat_max]
 
+    # Define the target projection (WGS84, lat/lon)
+    target_proj = osr.SpatialReference()
+    target_proj.ImportFromEPSG(4326)  # EPSG code for WGS84
+
+    # Create a coordinate transformation object
+    transform = osr.CoordinateTransformation(source_proj, target_proj)
+
+    # Initialize min and max values
+    lat_min, lon_max = float('inf'), -float('inf')
+    lon_min, lat_max = float('inf'), -float('inf')
+
+    #To avoid processing every single pixel, sample along the edges of the image at a specified rate
+    #A lower sample_rate will make the result more accurate but slower.
+    sample_rate = 10
+
+    # Iterate over the dataset edges at the sample rate
+    for x in range(0, x_size, sample_rate):
+        for y in [0, y_size - 1]:  # top and bottom edges
+            # Get pixel (x, y) coordinates in dataset's projection
+            x_geo = geotransform[0] + x * geotransform[1]
+            y_geo = geotransform[3] + y * geotransform[5]
+
+            # Transform the coordinates to lat/lon
+            lon, lat, _ = transform.TransformPoint(x_geo, y_geo)
+
+            # Update min/max lat and lon
+            lat_min = min(lat_min, lat)
+            lat_max = max(lat_max, lat)
+            lon_min = min(lon_min, lon)
+            lon_max = max(lon_max, lon)
+
+    for y in range(0, y_size, sample_rate):
+        for x in [0, x_size - 1]:  # left and right edges
+            # Get pixel (x, y) coordinates in dataset's projection
+            x_geo = geotransform[0] + x * geotransform[1]
+            y_geo = geotransform[3] + y * geotransform[5]
+
+            # Transform the coordinates to lat/lon
+            lon, lat, _ = transform.TransformPoint(x_geo, y_geo)
+
+            # Update min/max lat and lon
+            lat_min = min(lat_min, lat)
+            lat_max = max(lat_max, lat)
+            lon_min = min(lon_min, lon)
+            lon_max = max(lon_max, lon)
+
+    print([lat_min, lon_min, lat_max, lon_max])
+    extent = [lat_min, lon_min, lat_max, lon_max]
+    
+    #export file
     if (output_file != None or export_json == True):
-        # Check if the JSON file exists
-        if os.path.exists(output_file):
-            # Load the existing JSON data
-            with open(output_file, 'r') as f:
-                data = json.load(f)
-        else:
-            # If the file doesn't exist, create an empty dictionary
-            data = {}
-                
-            # Update or add the model_name key with the extent value
-            data[model] = [extent[0],extent[1],extent[2],extent[3]]
-
-        # Save the updated data back to the JSON file
-        with open(output_file, 'w') as f:
-            json.dump(data, f, indent=4)
+        print("exported")
+        saveToJSON(extent, output_file, model)
 
         # Return the extent in lon/lat
-        return extent
+    return extent
 
 def calculateAspectRatio(extent):
     """
     Calculate the aspect ratio (width / height) of the raster from its extent.
     """
-    x_min, x_max, y_min, y_max = tuple(extent)
+    x_min, y_min, x_max, y_max = tuple(extent)
     
     # Calculate width and height
     width = x_max - x_min  # Distance in the X direction (longitude or X axis)
@@ -232,6 +264,10 @@ def convertFromNCToPNG(inputFile="input.tif", exportFile="output.png", extent=No
     #Rescale input to the desired vmin and vmax to 24bit
     #data_rescaled = np.clip(map_values(data_array, vmin, vmax, 0, 256^3), 0, 256^3)
 
+    # Get the geotransform and projection from the source dataset
+    geotransform = dataset.GetGeoTransform()
+    projection = dataset.GetProjection()
+
     #arrange array to rgb standards
     rgb_array = float_to_rgb(data_array, vmin, vmax)
 
@@ -242,6 +278,10 @@ def convertFromNCToPNG(inputFile="input.tif", exportFile="output.png", extent=No
     driver = gdal.GetDriverByName('MEM')
     rows, cols, _ = rgb_array.shape
     rgb_dataset = driver.Create('', cols, rows, 3, gdal.GDT_Byte)
+    
+    # Inject the geotransform and projection into the new dataset
+    rgb_dataset.SetGeoTransform(geotransform)
+    rgb_dataset.SetProjection(projection)
     
     # Write the RGB bands to the dataset
     for i in range(3):  # R, G, B
@@ -255,17 +295,18 @@ def convertFromNCToPNG(inputFile="input.tif", exportFile="output.png", extent=No
     
     height_resolution = width_resolution/calculateAspectRatio(extent)
 
-    gdal.Translate(
+    gdal.Warp(
         exportFile,
         rgb_dataset,
-        outputSRS="EPSG:4326", #Equirectangular
+        dstSRS="EPSG:4326",
         outputBounds=extent,
-        width=width_resolution,
-        height=height_resolution,
-        noData=nodata,
-        outputType=gdal.GDT_Byte, # 8 bits
-        creationOptions=['ZLEVEL=1'], #Set the amount of time to spend on compression. A value of 1 is fast but does no compression, and a value of 9 is slow but does the best compression.
-        format="png")
+        width=int(abs(width_resolution)),
+        height=int(abs(height_resolution)),
+        srcNodata=nodata,
+        outputType=gdal.GDT_Byte,
+        creationOptions=['ZLEVEL=1'],
+        format="PNG"
+    )
 
     if (debug):
         end_time = time.time()
