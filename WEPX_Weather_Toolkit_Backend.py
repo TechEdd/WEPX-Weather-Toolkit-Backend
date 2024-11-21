@@ -17,6 +17,14 @@ vmaxDict = {"DPT":60,
             "RETOP":25
             }
 
+#variables to download for each models and surface level
+variablesHRRR = {"RETOP":["all_lev"], 
+                 "CAPE":["lev_surface"],
+                 "CIN":["lev_surface"],
+                 "DPT":["lev_2_m_above_ground"],
+                 "REFC":["all_lev"]
+                 }
+
 #extent of full output
 #extent=[-143.261719,13.410994,-39.023438,60.930432]
 
@@ -58,18 +66,23 @@ def processModel(model, timeOutput,current_time):
     for forecast in range(forecastNb):
         print("downloading")
         forecast = str(forecast).zfill(2)
-        gribFile, variable = getattr(download, "download_"+model)(run,forecast,current_time)
-        for i, files in enumerate(gribFile):
-            #take files name but change extension
-            pngFile = str(".".join(files.split(".")[:-1]))+".png"
-            webpFile = str(".".join(files.split(".")[:-1]))+".webp"
-            print("convert to PNG")
-            convert.convertFromNCToPNG(files, pngFile, vmin=vminDict[variable[i]],vmax=vmaxDict[variable[i]], model=model)
-            print("convert to WEBP")
-            convert.convertToWEBP(pngFile,webpFile)
+        gribFiles = getattr(download, "download_"+model)(run, variablesHRRR, forecast,current_time)
+        
+        print("convert to PNG")
+        
+        for file in gribFiles:
+            #in same folder as grib2 (but still get same name of grib2)
+            pngPath = ".".join(file.split(".")[:-1])
+            pngFiles = convert.convertFromNCToPNG(file, pngPath, vmin=vminDict,vmax=vmaxDict, model=model)
+
+        print("convert to WEBP")
+        for file in pngFiles:
+            #in same folder as png
+            webpFilename = ".".join(file.split(".")[:-1]) + ".webp"
+            webpFiles = convert.convertToWEBP(file, webpFilename)
     
 while(1):
-    for model in list_of_models:
+    for model in list_of_models: 
         isItTimeToDownload, timeOutput, current_time = download.isItTimeToDownload(model)
         if(isItTimeToDownload):
             processModel(model, timeOutput, current_time)
