@@ -6,6 +6,9 @@ This program automates the downloading of files of weather models and more (will
 
 It then converts it to PNG file using GDAL. The outputed file is a PNG file containing a 24bit Float array. It then converts it to lossless WEBP for the best compression. Data then has to be converted back to a colormap on the client side.
 
+## Status
+This program is still in early stage and not finished
+
 ## Usage
 **WEPX_Weather_Toolkit_Backend.py** is the main program containing the loop to check and download the file using the other python files.
 
@@ -41,7 +44,6 @@ Currently none-standard libraries are:
 ## Contributing
 
 Pull requests are welcome. For major changes, please open an issue first
-to discuss what you would like to change.
 
 Please make sure to update tests as appropriate.
 
