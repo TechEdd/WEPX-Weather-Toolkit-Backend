@@ -4,13 +4,6 @@ import urllib.request
 from multiprocessing import Process
 import os
 
-timeToDownload = 30
-
-#models Wait for first file available in minutes
-modelsLeadTime = {"HRRR": 48}
-#models interval of outputs per day in hours
-modelsIntervalOfOutputs = {"HRRR": 1}
-
 def isItTimeToDownload(model):
     """
     Determines if it's time to download data from a weather model based on the model's update frequency and lead time.

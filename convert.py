@@ -8,11 +8,6 @@ from osgeo import gdal, osr
 gdal.UseExceptions()
 from wand.image import Image
 
-debug = True
-export_json = True
-file_width_resolution = 3000
-output_json_file = "model_extent.json"
-
 def convertToWEBP(inputFile="input.png", exportFile="output.webp"):
     '''
     Converts an image file (e.g., PNG) to a WebP format using the Wand library.
