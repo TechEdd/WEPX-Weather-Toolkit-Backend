@@ -72,8 +72,8 @@ def processModel(model, timeOutput,current_time):
         
         for file in gribFiles:
             #in same folder as grib2 (but still get same name of grib2)
-            pngPath = ".".join(file.split(".")[:-1])
-            pngFiles = convert.convertFromNCToPNG(file, pngPath, vmin=vminDict,vmax=vmaxDict, model=model)
+            pngPath = ".".join(file.split(".")[:-1]) + "."
+            pngFiles = convert.convertFromNCToPNG(file, pngPath, variablesHRRR, vmin=vminDict,vmax=vmaxDict, model=model)
 
         print("convert to WEBP")
         for file in pngFiles:
