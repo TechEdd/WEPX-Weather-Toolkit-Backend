@@ -1,6 +1,8 @@
+import re
 import time
 import json
 import os
+import warnings
 import numpy as np
 from osgeo import gdal, osr
 gdal.UseExceptions()
@@ -224,42 +226,82 @@ def calculateAspectRatio(extent):
     
     return aspect_ratio
 
-def convertFromNCToPNG(inputFile="input.tif", exportFile="output.png", extent=None, vmin=0, vmax=10, nodata=None, model=None, width=None):
+def formatMetadata(metadata):
+    #Height above ground level
+    if "HTGL" in metadata:
+        formatted = metadata.replace('[m]', '_m')
+        formatted = formatted.split('HTGL')[0] + '_above_ground'
+        formatted = formatted.replace(' ', '_')
+    elif "ISBL" in metadata:
+        if "Pa" in metadata:
+            formatted = metadata.split('[Pa]')[0].strip()  # Extract pascal level in front
+            formatted = int(formatted) // 1000 # convert to mb
+            formatted = f"{formatted}_mb"
+    elif "SFC" in metadata:
+        formatted = "surface"
+    else:
+        raise Exception("level unknown")
+
+
+    return "lev_" + formatted
+
+def convertFromNCToPNG(inputFile="input.tif", exportPath="./", variablesToConvert=None, extent=None, vmin=0, vmax=10, nodata=None, model=None, width=None):
     '''
     Converts a NetCDF (or GeoTIFF) file to a grayscale PNG.
 
-    This function processes only the first raster band of the input file. 
+    This function processes all bands in the raster to png.
+    If variablesToConvert has a dict containing variables and a level to it,
+    it will convert it otherwise pass over it.
     Values are set in a RGB array which contains 256-base of the raster base
     giving a 24-bit image that can afterwards be processed.
     Calculates automatically width
 
 
+
     Parameters:
     inputFile (str): The file name of the NetCDF or GeoTIFF input file.
-    exportFile (str): The file name for the exported PNG.
+    exportPath (str): The file path for the exported PNG.
+    variablesToConvert (dict): Dict representing in the keys the variables and in the items
+                               the levels to convert
     extent (list): Bounding box coordinates [xmin, ymin, xmax, ymax] 
                    in lat/lon for the exported PNG.
                    Example: [-125, 24, -66, 50] (USA).
-    vmin (float): The minimum value in the input data. Values equal to `vmin` 
+    vmin (dict or float): The minimum value(s) for the exported data. Values equal to `vmin` 
                   will be mapped to 0 in the PNG.
-    vmax (float): The maximum value in the input data. Values equal to `vmax` 
+    vmax (dict or float): The maximum value(s) for the exported data. Values equal to `vmax` 
                   will be mapped to 255 in the PNG.
-    nodata (float): The value representing no data in the input file.
+    nodata (dict or float): The value representing no data in the input file.
     model (str): (optional) model name for extent name
                  if extent not set, model use for render setting the extent
                  in a file and naming it
 
     Returns:
-    None: The output is saved as a PNG file specified by `exportFile`.
+    filepath (list): filepath of rendered images.
     '''
-    
+
     #benchmark time
     if (debug):
         start_time = time.time()
 
     dataset = gdal.Open(inputFile)
 
-    data_array = dataset.GetRasterBand(1).ReadAsArray().astype(float)
+    #get all rasterBands for a variable -----------------------
+    
+    variablesDict = {}
+    #check file extension
+    filetype = inputFile.split(".")[-1]
+    if (filetype == "grib2"):
+        {
+        variablesDict.setdefault(desc, []).append(band)
+        for band in range(1, dataset.RasterCount + 1)
+        if (desc := dataset.GetRasterBand(band).GetMetadata()['GRIB_ELEMENT'])
+        }
+        
+    else:
+        #note: possibely change the code in future to do the export sequentially
+        raise Exception("filetype not recognised: " + filetype)
+    
+    #----------------------------------------------------------
 
     #Rescale input to the desired vmin and vmax to 24bit
     #data_rescaled = np.clip(map_values(data_array, vmin, vmax, 0, 256^3), 0, 256^3)
@@ -268,54 +310,88 @@ def convertFromNCToPNG(inputFile="input.tif", exportFile="output.png", extent=No
     geotransform = dataset.GetGeoTransform()
     projection = dataset.GetProjection()
 
-    #arrange array to rgb standards
-    rgb_array = float_to_rgb(data_array, vmin, vmax)
+    allRenderedFiles = []
+    for variable in variablesDict:
+        for band in variablesDict[variable]:
+            # checks whether it's all_lev in which case continue the conversion
+            # otherwise the level is not wanted so go to next band
+            print(variable + str(variablesToConvert[variable]))
+            if not (variablesToConvert==None):
+                #if formatMetadata fails, then skip
+                try:
+                    if ("all_lev" in variablesToConvert[variable]):
+                        level = "all_lev"
+                    #checks if current level is in the list to convert otherwise break
+                    elif not (formatMetadata(dataset.GetRasterBand(band).GetDescription()) in variablesToConvert[variable]):
+                        break
+                except:
+                    break
+            else: 
+                # Replace non-alphabetic characters with underscores for file format
+                level = re.sub(r'[^a-zA-Z]', '_', dataset.GetRasterBand(band).GetDescription())
 
-    if (extent==None):
-        extent = get_raster_extent_in_lonlat(dataset, model)
 
-    # Create an in-memory dataset to hold the RGB data
-    driver = gdal.GetDriverByName('MEM')
-    rows, cols, _ = rgb_array.shape
-    rgb_dataset = driver.Create('', cols, rows, 3, gdal.GDT_Byte)
-    
-    # Inject the geotransform and projection into the new dataset
-    rgb_dataset.SetGeoTransform(geotransform)
-    rgb_dataset.SetProjection(projection)
-    
-    # Write the RGB bands to the dataset
-    for i in range(3):  # R, G, B
-        rgb_dataset.GetRasterBand(i + 1).WriteArray(rgb_array[:, :, i])
-    
-    # determine height
-    if (width != None):
-        width_resolution = width
-    else:
-        width_resolution = file_width_resolution
-    
-    height_resolution = width_resolution/calculateAspectRatio(extent)
+            data_array = dataset.GetRasterBand(band).ReadAsArray().astype(float)
 
-    gdal.Warp(
-        exportFile,
-        rgb_dataset,
-        dstSRS="EPSG:4326",
-        outputBounds=extent,
-        width=int(abs(width_resolution)),
-        height=int(abs(height_resolution)),
-        srcNodata=nodata,
-        outputType=gdal.GDT_Byte,
-        creationOptions=['ZLEVEL=1'],
-        format="PNG"
-    )
+            fullExportFile = exportPath + variable + "." + level + ".png"
+            allRenderedFiles.append(fullExportFile)
+
+            #arrange array to rgb standards
+            #check if vmin is dict
+            if (isinstance(vmin, dict) or isinstance(vmax, dict)):
+                rgb_array = float_to_rgb(data_array, vmin[variable], vmax[variable])
+            else:
+                rgb_array = float_to_rgb(data_array, vmin, vmax)
+
+            if (extent==None):
+                extent = get_raster_extent_in_lonlat(dataset, model)
+
+            # Create an in-memory dataset to hold the RGB data
+            driver = gdal.GetDriverByName('MEM')
+            rows, cols, _ = rgb_array.shape
+            rgb_dataset = driver.Create('', cols, rows, 3, gdal.GDT_Byte)
+    
+            # Inject the geotransform and projection into the new dataset
+            rgb_dataset.SetGeoTransform(geotransform)
+            rgb_dataset.SetProjection(projection)
+    
+            # Write the RGB bands to the dataset
+            for i in range(3):  # R, G, B
+                rgb_dataset.GetRasterBand(i + 1).WriteArray(rgb_array[:, :, i])
+    
+            # determine height
+            if (width != None):
+                width_resolution = width
+            else:
+                width_resolution = file_width_resolution
+    
+            height_resolution = width_resolution/calculateAspectRatio(extent)
+
+            gdal.Warp(
+                fullExportFile,
+                rgb_dataset,
+                dstSRS="EPSG:4326",
+                outputBounds=extent,
+                width=int(abs(width_resolution)),
+                height=int(abs(height_resolution)),
+                srcNodata=nodata,
+                outputType=gdal.GDT_Byte,
+                creationOptions=['ZLEVEL=1'],
+                format="PNG"
+            )
+
+            #close dataset
+            rgb_dataset.FlushCache()
+            rgb_dataset = None
 
     if (debug):
         end_time = time.time()
         elapsed_time = end_time - start_time
-        print(f"Finished converting NetCDF '{inputFile}' to PNG '{exportFile}': {elapsed_time:.2f} seconds")
+        print(f"Finished converting '{inputFile}' to PNG: {elapsed_time:.2f} seconds")
+
+    dataset = None
+    return allRenderedFiles
     
-    #close dataset
-    rgb_dataset.FlushCache()
-    rgb_dataset = dataset = None
 
 if __name__ == "__main__":
     convertFromNCToPNG(vmin=0.1, vmax=1, nodata=0)
