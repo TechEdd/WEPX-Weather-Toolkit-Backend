@@ -1,4 +1,3 @@
-import re
 import time
 import json
 import os
@@ -7,6 +6,7 @@ import numpy as np
 from osgeo import gdal, osr
 gdal.UseExceptions()
 from wand.image import Image
+import params
 
 def convertToWEBP(inputFile="input.png", exportFile="output.webp"):
     '''

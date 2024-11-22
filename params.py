@@ -25,15 +25,15 @@ variablesHRRR = {"RETOP":["all_lev"],
 #extent of full output
 #extent=[-143.261719,13.410994,-39.023438,60.930432]
 #max delay for downloading a run
-download.timeToDownload = 59
+timeToDownload = 59
 #save to json the weather model extent
-convert.export_json = True
+export_json = True
 #models Wait for first file available in minutes
-download.modelsLeadTime = {"HRRR": 48}
+modelsLeadTime = {"HRRR": 48}
 #models interval of outputs per day in hours
-download.modelsIntervalOfOutputs = {"HRRR": 1}
+modelsIntervalOfOutputs = {"HRRR": 1}
 
-convert.debug = True
-convert.export_json = True
-convert.file_width_resolution = 3000
-convert.output_json_file = "model_extent.json"
+debug = True
+export_json = True
+file_width_resolution = 3000
+output_json_file = "model_extent.json"

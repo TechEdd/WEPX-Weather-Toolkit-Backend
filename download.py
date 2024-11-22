@@ -3,6 +3,7 @@ from time import sleep
 import urllib.request
 from multiprocessing import Process
 import os
+import params
 
 def isItTimeToDownload(model):
     """
