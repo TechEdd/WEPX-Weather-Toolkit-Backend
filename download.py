@@ -3,7 +3,13 @@ from time import sleep
 import urllib.request
 from multiprocessing import Process
 import os
-import params
+
+timeToDownload = 30
+
+#models Wait for first file available in minutes
+modelsLeadTime = {"HRRR": 48}
+#models interval of outputs per day in hours
+modelsIntervalOfOutputs = {"HRRR": 1}
 
 def isItTimeToDownload(model):
     """

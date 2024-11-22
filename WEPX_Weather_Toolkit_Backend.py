@@ -2,8 +2,34 @@ from multiprocessing import Process
 from time import sleep
 import download
 import convert
-import params
 
+list_of_models = ["HRRR"]
+forecastNbDict = {"HRRR":"18"}
+vminDict = {"DPT":-60,
+            "REFC": -10,
+            "CAPE": 0,
+            "CIN":-1000,
+            "RETOP":0}
+vmaxDict = {"DPT":60,
+            "REFC": 80,
+            "CAPE": 8000,
+            "CIN": 0,
+            "RETOP":25
+            }
+
+#variables to download for each models and surface level
+variablesHRRR = {"RETOP":["all_lev"], 
+                 "CAPE":["lev_surface"],
+                 "CIN":["lev_surface"],
+                 "DPT":["lev_2_m_above_ground"],
+                 "REFC":["all_lev"]
+                 }
+
+#extent of full output
+#extent=[-143.261719,13.410994,-39.023438,60.930432]
+
+download.timeToDownload = 59
+convert.export_json = True
 
 def processModel(model, timeOutput,current_time):
     """
@@ -64,4 +90,3 @@ while(1):
         else:
             print(f"Time before downloading: {timeOutput}")
             sleep(10)
-
