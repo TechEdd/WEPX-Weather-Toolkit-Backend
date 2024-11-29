@@ -245,14 +245,13 @@ def formatMetadata(metadata):
 
     return "lev_" + formatted
 
-def decodeJSON(band, exportPath, variable, level, vminDict, vmaxDict, nodata):
+def decodeJSON(band, exportPath, variable, level, vmin, vmax):
     fullExportFile = exportPath + variable + "." + level + ".json"
     data = {
-        "vmin": vminDict[variable],
-        "vmax": vmaxDict[variable],
+        "vmin": vmin,
+        "vmax": vmax,
         "run": band.GetMetadata()['GRIB_REF_TIME'],
-        "forecastTime":  band.GetMetadata()['GRIB_VALID_TIME'],
-        "nodata": nodata
+        "forecastTime":  band.GetMetadata()['GRIB_VALID_TIME']
     }
     with open(fullExportFile, 'w') as f:
         json.dump(data, f, indent=0)
@@ -349,7 +348,7 @@ def convertFromNCToPNG(inputFile="input.tif", exportPath="./", variablesToConver
             allRenderedFiles.append(fullExportFile)
 
             if (nodata==None):
-                nodata = vmin[variable]-1
+                nodata = vmin[variable]
 
             #arrange array to rgb standards
             #check if vmin is dict
@@ -357,11 +356,11 @@ def convertFromNCToPNG(inputFile="input.tif", exportPath="./", variablesToConver
                 #-1 for nodata
                 rgb_array = float_to_rgb(data_array, vmin[variable]-1, vmax[variable])
                 if jsonOutput:
-                    decodeJSON(dataset.GetRasterBand(band), exportPath, variable, level, vmin[variable]-1, vmax[variable], nodata=nodata)
+                    decodeJSON(dataset.GetRasterBand(band), exportPath, variable, level, vmin[variable], vmax[variable])
             else:
                 rgb_array = float_to_rgb(data_array, vmin, vmax)
                 if jsonOutput:
-                    decodeJSON(dataset.GetRasterBand(band), exportPath, variable, level, vmin-1, vmax, nodata=nodata)
+                    decodeJSON(dataset.GetRasterBand(band), exportPath, variable, level, vmin, vmax)
 
             if (extent==None):
                 extent = get_raster_extent_in_lonlat(dataset, model)
@@ -395,8 +394,8 @@ def convertFromNCToPNG(inputFile="input.tif", exportPath="./", variablesToConver
                 outputBounds=extent,
                 width=int(abs(width_resolution)),
                 height=int(abs(height_resolution)),
-                srcNodata=nodata,
                 outputType=gdal.GDT_Byte,
+                dstNodata=vmin,
                 creationOptions=['ZLEVEL=1'],
                 format="PNG"
             )
