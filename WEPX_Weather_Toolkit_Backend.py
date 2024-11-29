@@ -56,7 +56,7 @@ def processModel(model, timeOutput,current_time):
     print(current_time)
     run = str(timeOutput).zfill(2)
     if (model=="HRRR"):
-        if (run == "00" or run == "06" or run == "12" or run == "18"):
+        if (run in ["00", "06", "12", "18"]):
             forecastNb = 48
         else:
             forecastNb = 18
