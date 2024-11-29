@@ -245,7 +245,20 @@ def formatMetadata(metadata):
 
     return "lev_" + formatted
 
-def convertFromNCToPNG(inputFile="input.tif", exportPath="./", variablesToConvert=None, extent=None, vmin=0, vmax=10, nodata=None, model=None, width=None):
+def decodeJSON(band, exportPath, variable, level, vminDict, vmaxDict, nodata):
+    fullExportFile = exportPath + variable + "." + level + ".json"
+    data = {
+        "vmin": vminDict[variable],
+        "vmax": vmaxDict[variable],
+        "run": band.GetMetadata()['GRIB_REF_TIME'],
+        "forecastTime":  band.GetMetadata()['GRIB_VALID_TIME'],
+        "nodata": nodata
+    }
+    with open(fullExportFile, 'w') as f:
+        json.dump(data, f, indent=0)
+
+
+def convertFromNCToPNG(inputFile="input.tif", exportPath="./", variablesToConvert=None, extent=None, vmin=0, vmax=10, nodata=None, model=None, width=None, jsonOutput=True):
     '''
     Converts a NetCDF (or GeoTIFF) file to a grayscale PNG.
 
@@ -330,18 +343,25 @@ def convertFromNCToPNG(inputFile="input.tif", exportPath="./", variablesToConver
                 # Replace non-alphabetic characters with underscores for file format
                 level = re.sub(r'[^a-zA-Z]', '_', dataset.GetRasterBand(band).GetDescription())
 
-
             data_array = dataset.GetRasterBand(band).ReadAsArray().astype(float)
 
             fullExportFile = exportPath + variable + "." + level + ".png"
             allRenderedFiles.append(fullExportFile)
 
+            if (nodata==None):
+                nodata = vmin[variable]-1
+
             #arrange array to rgb standards
             #check if vmin is dict
-            if (isinstance(vmin, dict) or isinstance(vmax, dict)):
-                rgb_array = float_to_rgb(data_array, vmin[variable], vmax[variable])
+            if (isinstance(vmin, dict) and isinstance(vmax, dict)):
+                #-1 for nodata
+                rgb_array = float_to_rgb(data_array, vmin[variable]-1, vmax[variable])
+                if jsonOutput:
+                    decodeJSON(dataset.GetRasterBand(band), exportPath, variable, level, vmin[variable]-1, vmax[variable], nodata=nodata)
             else:
                 rgb_array = float_to_rgb(data_array, vmin, vmax)
+                if jsonOutput:
+                    decodeJSON(dataset.GetRasterBand(band), exportPath, variable, level, vmin-1, vmax, nodata=nodata)
 
             if (extent==None):
                 extent = get_raster_extent_in_lonlat(dataset, model)
@@ -364,7 +384,8 @@ def convertFromNCToPNG(inputFile="input.tif", exportPath="./", variablesToConver
                 width_resolution = width
             else:
                 width_resolution = file_width_resolution
-    
+            
+
             height_resolution = width_resolution/calculateAspectRatio(extent)
 
             gdal.Warp(
@@ -391,7 +412,6 @@ def convertFromNCToPNG(inputFile="input.tif", exportPath="./", variablesToConver
 
     dataset = None
     return allRenderedFiles
-    
 
 if __name__ == "__main__":
     convertFromNCToPNG(vmin=0.1, vmax=1, nodata=0)
