@@ -348,6 +348,12 @@ def convertFromNCToPNG(inputFile="input.tif", exportPath="./", variablesToConver
             fullExportFile = exportPath + variable + "." + level + ".png"
             allRenderedFiles.append(fullExportFile)
 
+            if nodata==None:
+                #in case of inverted colormaps
+                if variable=="CIN":
+                    nodata=255
+                else:
+                    nodata=0
 
             #arrange array to rgb standards
             #check if vmin is dict
@@ -393,7 +399,7 @@ def convertFromNCToPNG(inputFile="input.tif", exportPath="./", variablesToConver
                 width=int(abs(width_resolution)),
                 height=int(abs(height_resolution)),
                 outputType=gdal.GDT_Byte,
-                dstNodata=vmin,
+                dstNodata=nodata
                 creationOptions=['ZLEVEL=1'],
                 format="PNG"
             )
