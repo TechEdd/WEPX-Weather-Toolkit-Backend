@@ -71,7 +71,7 @@ def processModel(model, timeOutput,current_time):
         print(e)
 
     for forecast in range(forecastNb):
-        system("title Running " + model + " for run " + run + " on forecast " + forecast)
+        system("title Running " + model + " for run " + run + " on forecast " + str(forecast).zfill(2))
         print("downloading")
         forecast = str(forecast).zfill(2)
         gribFiles = getattr(download, "download_"+model)(run, variablesHRRR, forecast,current_time)
