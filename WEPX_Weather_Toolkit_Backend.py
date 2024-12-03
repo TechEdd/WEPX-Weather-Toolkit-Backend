@@ -2,18 +2,19 @@ from multiprocessing import Process
 from time import sleep
 import download
 import convert
+import shutil
 
 list_of_models = ["HRRR"]
 forecastNbDict = {"HRRR":"18"}
 vminDict = {"DPT":-60,
             "REFC": -10,
-            "CAPE": 0,
+            "CAPE": -1,
             "CIN":-1000,
             "RETOP":0}
 vmaxDict = {"DPT":60,
             "REFC": 80,
             "CAPE": 8000,
-            "CIN": 0,
+            "CIN": 1,
             "RETOP":25
             }
 
@@ -62,6 +63,11 @@ def processModel(model, timeOutput,current_time):
             forecastNb = 18
     else:
         forecastNb = forecastNbDict[model]
+    
+    try:
+        shutil.rmtree("../WEPX Website/downloads/" + model + "/" + run)
+    except Exception as e:
+        print(e)
 
     for forecast in range(forecastNb):
         print("downloading")
@@ -72,7 +78,8 @@ def processModel(model, timeOutput,current_time):
         
         for file in gribFiles:
             #in same folder as grib2 (but still get same name of grib2)
-            pngPath = ".".join(file.split(".")[:-1]) + "."
+            pngPath = "../WEPX Website/" + ".".join(file.split(".")[:-1]) + "."
+            print(pngPath)
             pngFiles = convert.convertFromNCToPNG(file, pngPath, variablesHRRR, vmin=vminDict,vmax=vmaxDict, model=model)
 
         print("convert to WEBP")

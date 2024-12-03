@@ -1,3 +1,4 @@
+from asyncio.windows_events import NULL
 import re
 import time
 import json
@@ -230,7 +231,7 @@ def formatMetadata(metadata):
     #Height above ground level
     if "HTGL" in metadata:
         formatted = metadata.replace('[m]', '_m')
-        formatted = formatted.split('HTGL')[0] + '_above_ground'
+        formatted = formatted.split('HTGL')[0] + 'above_ground'
         formatted = formatted.replace(' ', '_')
     elif "ISBL" in metadata:
         if "Pa" in metadata:
@@ -240,9 +241,7 @@ def formatMetadata(metadata):
     elif "SFC" in metadata:
         formatted = "surface"
     else:
-        raise Exception("level unknown")
-
-
+        raise Exception("level unknown", metadata)
     return "lev_" + formatted
 
 def decodeJSON(band, exportPath, variable, level, vmin, vmax):
@@ -253,6 +252,7 @@ def decodeJSON(band, exportPath, variable, level, vmin, vmax):
         "run": band.GetMetadata()['GRIB_REF_TIME'],
         "forecastTime":  band.GetMetadata()['GRIB_VALID_TIME']
     }
+    os.makedirs(os.path.dirname(fullExportFile), exist_ok=True)
     with open(fullExportFile, 'w') as f:
         json.dump(data, f, indent=0)
 
@@ -335,26 +335,24 @@ def convertFromNCToPNG(inputFile="input.tif", exportPath="./", variablesToConver
                         level = "all_lev"
                     #checks if current level is in the list to convert otherwise break
                     elif not (formatMetadata(dataset.GetRasterBand(band).GetDescription()) in variablesToConvert[variable]):
-                        break
+                        continue
                 except:
-                    break
+                    continue
             else: 
                 # Replace non-alphabetic characters with underscores for file format
                 level = re.sub(r'[^a-zA-Z]', '_', dataset.GetRasterBand(band).GetDescription())
+            
 
             data_array = dataset.GetRasterBand(band).ReadAsArray().astype(float)
 
             fullExportFile = exportPath + variable + "." + level + ".png"
             allRenderedFiles.append(fullExportFile)
 
-            if (nodata==None):
-                nodata = vmin[variable]
 
             #arrange array to rgb standards
             #check if vmin is dict
             if (isinstance(vmin, dict) and isinstance(vmax, dict)):
-                #-1 for nodata
-                rgb_array = float_to_rgb(data_array, vmin[variable]-1, vmax[variable])
+                rgb_array = float_to_rgb(data_array, vmin[variable], vmax[variable])
                 if jsonOutput:
                     decodeJSON(dataset.GetRasterBand(band), exportPath, variable, level, vmin[variable], vmax[variable])
             else:
