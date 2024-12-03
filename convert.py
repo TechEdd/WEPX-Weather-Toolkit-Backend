@@ -399,7 +399,7 @@ def convertFromNCToPNG(inputFile="input.tif", exportPath="./", variablesToConver
                 width=int(abs(width_resolution)),
                 height=int(abs(height_resolution)),
                 outputType=gdal.GDT_Byte,
-                dstNodata=nodata
+                dstNodata=nodata,
                 creationOptions=['ZLEVEL=1'],
                 format="PNG"
             )
