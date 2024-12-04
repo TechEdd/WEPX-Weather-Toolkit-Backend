@@ -9,13 +9,13 @@ list_of_models = ["HRRR"]
 forecastNbDict = {"HRRR":"18"}
 vminDict = {"DPT":-60,
             "REFC": -10,
-            "CAPE": -1,
+            "CAPE": 0,
             "CIN":-1000,
             "RETOP":0}
 vmaxDict = {"DPT":60,
             "REFC": 80,
             "CAPE": 8000,
-            "CIN": 1,
+            "CIN": 0,
             "RETOP":25
             }
 
