@@ -259,7 +259,7 @@ def decodeJSON(band, exportPath, variable, level, vmin, vmax):
 
 def convertFromNCToPNG(inputFile="input.tif", exportPath="./", variablesToConvert=None, extent=None, vmin=0, vmax=10, nodata=None, model=None, width=None, jsonOutput=True):
     '''
-    Converts a NetCDF (or GeoTIFF) file to a grayscale PNG.
+    Converts a NetCDF (or GeoTIFF) file to a 256 base PNG.
 
     This function processes all bands in the raster to png.
     If variablesToConvert has a dict containing variables and a level to it,
