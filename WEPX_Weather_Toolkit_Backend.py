@@ -11,12 +11,15 @@ vminDict = {"DPT":-60,
             "REFC": -10,
             "CAPE": 0,
             "CIN":-1000,
-            "RETOP":0}
+            "RETOP":0,
+            "SBT124": 100
+            }
 vmaxDict = {"DPT":60,
             "REFC": 80,
             "CAPE": 8000,
             "CIN": 0,
-            "RETOP":25
+            "RETOP":25,
+            "SBT124": 400
             }
 
 #variables to download for each models and surface level
@@ -24,13 +27,14 @@ variablesHRRR = {"RETOP":["all_lev"],
                  "CAPE":["lev_surface"],
                  "CIN":["lev_surface"],
                  "DPT":["lev_2_m_above_ground"],
-                 "REFC":["all_lev"]
+                 "REFC":["all_lev"],
+                 "SBT124":["all_lev"]
                  }
 
 #extent of full output
 #extent=[-143.261719,13.410994,-39.023438,60.930432]
 
-download.timeToDownload = 59
+download.timeToDownload = 20
 convert.export_json = True
 
 def processModel(model, timeOutput,current_time):
@@ -67,6 +71,8 @@ def processModel(model, timeOutput,current_time):
     
     try:
         shutil.rmtree("../WEPX Website/downloads/" + model + "/" + run)
+        shutil.rmtree("downloads/" + model + "/" + run)
+
     except Exception as e:
         print(e)
 
