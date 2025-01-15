@@ -18,7 +18,7 @@ vmaxDict = {"DPT":60,
             "REFC": 80,
             "CAPE": 8000,
             "CIN": 0,
-            "RETOP":25,
+            "RETOP":25000,
             "SBT124": 400
             }
 
@@ -75,6 +75,7 @@ def processModel(model, timeOutput,current_time):
 
     except Exception as e:
         print(e)
+        input()
 
     for forecast in range(forecastNb):
         system("title Running " + model + " for run " + run + " on forecast " + str(forecast).zfill(2))
