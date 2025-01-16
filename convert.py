@@ -228,6 +228,7 @@ def calculateAspectRatio(extent):
     return aspect_ratio
 
 def formatMetadata(metadata):
+    #format grib getDescription into downloaded level (here we don't take into account the lev_)
     #Height above ground level
     if "HTGL" in metadata:
         formatted = metadata.replace('[m]', '_m')
@@ -238,8 +239,16 @@ def formatMetadata(metadata):
             formatted = metadata.split('[Pa]')[0].strip()  # Extract pascal level in front
             formatted = int(formatted) // 1000 # convert to mb
             formatted = f"{formatted}_mb"
+        else:
+            raise Exception("level unknown", metadata)
     elif "SFC" in metadata:
         formatted = "surface"
+    elif "EATM" in metadata:
+        formatted = "entire_atmosphere"
+    elif "SIGL" in metadata:
+        formatted = metadata.split("[")[0] + '_sigma_level'
+    elif "NTAT" in metadata:
+        formatted = "top_of_atmosphere"
     else:
         raise Exception("level unknown", metadata)
     return "lev_" + formatted
@@ -336,13 +345,13 @@ def convertFromNCToPNG(inputFile="input.tif", exportPath="./", variablesToConver
                     #checks if current level is in the list to convert otherwise break
                     elif not (formatMetadata(dataset.GetRasterBand(band).GetDescription()) in variablesToConvert[variable]):
                         continue
+                    level = variablesToConvert[variable][0]
                 except:
                     continue
             else: 
                 # Replace non-alphabetic characters with underscores for file format
                 level = re.sub(r'[^a-zA-Z]', '_', dataset.GetRasterBand(band).GetDescription())
             
-
             data_array = dataset.GetRasterBand(band).ReadAsArray().astype(float)
 
             fullExportFile = exportPath + variable + "." + level + ".png"
