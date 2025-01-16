@@ -40,6 +40,18 @@ Currently none-standard libraries are:
 * [wand](https://github.com/emcconville/wand)
 
 
+## Adding models
+
+**WEPX_Weather_Toolkit_Backend.py**
+
+* add in *list of model* the model name
+* add in *forecastNbDict* the model name and max forecast number
+* add *variables{model name}* with the requested variables and levels
+
+**download.py**
+* add *modelsLeadTime* with model name and delay in minutes before availability
+* add *modelsIntervalOfOutputs* with model name and hours between each runs
+* under function *def linkGenerator*, add *if (model=={model name})* and the appropriate code to generate the link to download according to the needs
 
 ## Contributing
 
