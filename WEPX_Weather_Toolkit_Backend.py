@@ -7,34 +7,41 @@ from os import system
 
 list_of_models = ["HRRR"]
 forecastNbDict = {"HRRR":"18"}
-vminDict = {"DPT":-60,
+#absolute highest and lowest
+vminDict = {"DPT":-80,
+            "TMP":-80,
             "REFC": -10,
             "CAPE": 0,
-            "CIN":-1000,
+            "CIN":-4000,
             "RETOP":0,
+            "HAIL":0,
             "SBT124": 100
             }
-vmaxDict = {"DPT":60,
-            "REFC": 80,
-            "CAPE": 8000,
+vmaxDict = {"DPT":80,
+            "TMP":80,
+            "REFC": 100,
+            "CAPE": 14000,
             "CIN": 0,
             "RETOP":25000,
+            "HAIL":1,
             "SBT124": 400
             }
 
 #variables to download for each models and surface level
-variablesHRRR = {"RETOP":["all_lev"], 
+variablesHRRR = {"RETOP":["lev_cloud_top"], 
                  "CAPE":["lev_surface"],
                  "CIN":["lev_surface"],
                  "DPT":["lev_2_m_above_ground"],
-                 "REFC":["all_lev"],
-                 "SBT124":["all_lev"]
+                 "TMP":["lev_2_m_above_ground"],
+                 "HAIL":["lev_0.1_sigma_level"],
+                 "REFC":["lev_entire_atmosphere"],
+                 "SBT124":["lev_top_of_atmosphere"]
                  }
 
 #extent of full output
 #extent=[-143.261719,13.410994,-39.023438,60.930432]
 
-download.timeToDownload = 20
+download.timeToDownload = 59
 convert.export_json = True
 
 def processModel(model, timeOutput,current_time):
@@ -75,7 +82,6 @@ def processModel(model, timeOutput,current_time):
 
     except Exception as e:
         print(e)
-        input()
 
     for forecast in range(forecastNb):
         system("title Running " + model + " for run " + run + " on forecast " + str(forecast).zfill(2))
