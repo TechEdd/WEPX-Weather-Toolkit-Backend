@@ -5,8 +5,10 @@ import convert
 import shutil
 from os import system
 
-list_of_models = ["HRRR"]
-forecastNbDict = {"HRRR":"18"}
+list_of_models = ["HRRRSH"]
+forecastNbDict = {"HRRR":18,
+                  "HRRRSH":18
+                  }
 #absolute highest and lowest
 vminDict = {"DPT":-80,
             "TMP":-80,
@@ -15,7 +17,8 @@ vminDict = {"DPT":-80,
             "CIN":-4000,
             "RETOP":0,
             "HAIL":0,
-            "SBT124": 100
+            "SBT124": 100,
+            "GUST": 0
             }
 vmaxDict = {"DPT":80,
             "TMP":80,
@@ -24,7 +27,8 @@ vmaxDict = {"DPT":80,
             "CIN": 0,
             "RETOP":25000,
             "HAIL":1,
-            "SBT124": 400
+            "SBT124": 400,
+            "GUST": 115
             }
 
 #variables to download for each models and surface level
@@ -37,11 +41,15 @@ variablesHRRR = {"RETOP":["lev_cloud_top"],
                  "REFC":["lev_entire_atmosphere"],
                  "SBT124":["lev_top_of_atmosphere"]
                  }
+variablesHRRRSH = {"RETOP":["lev_cloud_top"],
+                 "REFC":["lev_entire_atmosphere"],
+                 "SBT124":["lev_top_of_atmosphere"]
+                 }
 
 #extent of full output
 #extent=[-143.261719,13.410994,-39.023438,60.930432]
 
-download.timeToDownload = 59
+download.timeToDownload = 56
 convert.export_json = True
 
 def processModel(model, timeOutput,current_time):
@@ -87,7 +95,7 @@ def processModel(model, timeOutput,current_time):
         system("title Running " + model + " for run " + run + " on forecast " + str(forecast).zfill(2))
         print("downloading")
         forecast = str(forecast).zfill(2)
-        gribFiles = getattr(download, "download_"+model)(run, variablesHRRR, forecast,current_time)
+        gribFiles = download.download_model(model, run, globals()["variables" + model], forecast, current_time)
         
         print("convert to PNG")
         
