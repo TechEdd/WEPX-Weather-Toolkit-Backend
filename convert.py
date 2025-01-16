@@ -315,6 +315,7 @@ def convertFromNCToPNG(inputFile="input.tif", exportPath="./", variablesToConver
     filetype = inputFile.split(".")[-1]
     if (filetype == "grib2"):
         {
+        #check all bands to get the number of the bands that contains the requested variable
         variablesDict.setdefault(desc, []).append(band)
         for band in range(1, dataset.RasterCount + 1)
         if (desc := dataset.GetRasterBand(band).GetMetadata()['GRIB_ELEMENT'])
@@ -333,91 +334,116 @@ def convertFromNCToPNG(inputFile="input.tif", exportPath="./", variablesToConver
     geotransform = dataset.GetGeoTransform()
     projection = dataset.GetProjection()
 
+    if (model == "HRRRSH"):
+        #if hrrrsh run is at zero, than only one forecast
+        if (int(dataset.GetRasterBand(1).GetMetadata()['GRIB_FORECAST_SECONDS']) != 0):
+            numbersOfForecast = 4
+        else:
+            numbersOfForecast = 1
+    else:
+        numbersOfForecast = 1
+
     allRenderedFiles = []
     for variable in variablesDict:
+        forecast=0
         for band in variablesDict[variable]:
-            # checks whether it's all_lev in which case continue the conversion
-            # otherwise the level is not wanted so go to next band
-            print(variable + str(variablesToConvert[variable]))
-            if not (variablesToConvert==None):
-                #if formatMetadata fails, then skip
-                try:
-                    if ("all_lev" in variablesToConvert[variable]):
-                        level = "all_lev"
-                    #checks if current level is in the list to convert otherwise break
-                    elif not (formatMetadata(dataset.GetRasterBand(band).GetDescription()) in variablesToConvert[variable]):
+                # checks whether it's all_lev in which case continue the conversion
+                # otherwise the level is not wanted so go to next band
+                print(variable + str(variablesToConvert[variable]))
+                if not (variablesToConvert==None):
+                    #if formatMetadata fails, then skip
+                    try:
+                        if ("all_lev" in variablesToConvert[variable]):
+                            level = "all_lev"
+                        #checks if current level is in the list to convert otherwise break
+                        elif not (formatMetadata(dataset.GetRasterBand(band).GetDescription()) in variablesToConvert[variable]):
+                            continue
+                        level = variablesToConvert[variable][0]
+                    except:
                         continue
-                    level = variablesToConvert[variable][0]
-                except:
-                    continue
-            else: 
-                # Replace non-alphabetic characters with underscores for file format
-                level = re.sub(r'[^a-zA-Z]', '_', dataset.GetRasterBand(band).GetDescription())
+                else: 
+                    # Replace non-alphabetic characters with underscores for file format
+                    level = re.sub(r'[^a-zA-Z]', '_', dataset.GetRasterBand(band).GetDescription())
             
-            data_array = dataset.GetRasterBand(band).ReadAsArray().astype(float)
 
-            fullExportFile = exportPath + variable + "." + level + ".png"
-            allRenderedFiles.append(fullExportFile)
 
-            if nodata==None:
-                #in case of inverted colormaps
-                if variable=="CIN":
-                    nodata=255
+                data_array = dataset.GetRasterBand(band).ReadAsArray().astype(float)
+                if (model=="HRRRSH"):
+                    fullExportFile = exportPath + str(int(forecast*(60/numbersOfForecast))).zfill(2) + "." + variable + "." + level + ".png"
                 else:
-                    nodata=0
+                    fullExportFile = exportPath + variable + "." + level + ".png"
+                allRenderedFiles.append(fullExportFile)
 
-            #arrange array to rgb standards
-            #check if vmin is dict
-            if (isinstance(vmin, dict) and isinstance(vmax, dict)):
-                rgb_array = float_to_rgb(data_array, vmin[variable], vmax[variable])
-                if jsonOutput:
-                    decodeJSON(dataset.GetRasterBand(band), exportPath, variable, level, vmin[variable], vmax[variable])
-            else:
-                rgb_array = float_to_rgb(data_array, vmin, vmax)
-                if jsonOutput:
-                    decodeJSON(dataset.GetRasterBand(band), exportPath, variable, level, vmin, vmax)
+                if nodata==None:
+                    #in case of inverted colormaps
+                    if variable=="CIN":
+                        nodata=255
+                    else:
+                        nodata=0
 
-            if (extent==None):
-                extent = get_raster_extent_in_lonlat(dataset, model)
+                #arrange array to rgb standards
+                #check if vmin is dict
 
-            # Create an in-memory dataset to hold the RGB data
-            driver = gdal.GetDriverByName('MEM')
-            rows, cols, _ = rgb_array.shape
-            rgb_dataset = driver.Create('', cols, rows, 3, gdal.GDT_Byte)
+                if (model=="HRRRSH"):
+                    exportPathJSON = exportPath + str(int(forecast*(60/numbersOfForecast))).zfill(2) + "."
+                else:
+                    exportPathJSON = exportPath
+
+                if (isinstance(vmin, dict) and isinstance(vmax, dict)):
+                    rgb_array = float_to_rgb(data_array, vmin[variable], vmax[variable])
+                    if jsonOutput:
+                        decodeJSON(dataset.GetRasterBand(band), exportPathJSON, variable, level, vmin[variable], vmax[variable])
+                else:
+                    rgb_array = float_to_rgb(data_array, vmin, vmax)
+                    if jsonOutput:
+                        decodeJSON(dataset.GetRasterBand(band), exportPathJSON, variable, level, vmin, vmax)
+
+                if (extent==None):
+                    extent = get_raster_extent_in_lonlat(dataset, model)
+
+                # Create an in-memory dataset to hold the RGB data
+                driver = gdal.GetDriverByName('MEM')
+                rows, cols, _ = rgb_array.shape
+                rgb_dataset = driver.Create('', cols, rows, 3, gdal.GDT_Byte)
     
-            # Inject the geotransform and projection into the new dataset
-            rgb_dataset.SetGeoTransform(geotransform)
-            rgb_dataset.SetProjection(projection)
+                # Inject the geotransform and projection into the new dataset
+                rgb_dataset.SetGeoTransform(geotransform)
+                rgb_dataset.SetProjection(projection)
     
-            # Write the RGB bands to the dataset
-            for i in range(3):  # R, G, B
-                rgb_dataset.GetRasterBand(i + 1).WriteArray(rgb_array[:, :, i])
+                # Write the RGB bands to the dataset
+                for i in range(3):  # R, G, B
+                    rgb_dataset.GetRasterBand(i + 1).WriteArray(rgb_array[:, :, i])
     
-            # determine height
-            if (width != None):
-                width_resolution = width
-            else:
-                width_resolution = file_width_resolution
+                # determine height
+                if (width != None):
+                    width_resolution = width
+                else:
+                    width_resolution = file_width_resolution
             
 
-            height_resolution = width_resolution/calculateAspectRatio(extent)
+                height_resolution = width_resolution/calculateAspectRatio(extent)
 
-            gdal.Warp(
-                fullExportFile,
-                rgb_dataset,
-                dstSRS="EPSG:4326",
-                outputBounds=extent,
-                width=int(abs(width_resolution)),
-                height=int(abs(height_resolution)),
-                outputType=gdal.GDT_Byte,
-                dstNodata=nodata,
-                creationOptions=['ZLEVEL=1'],
-                format="PNG"
-            )
+                gdal.Warp(
+                    fullExportFile,
+                    rgb_dataset,
+                    dstSRS="EPSG:4326",
+                    outputBounds=extent,
+                    width=int(abs(width_resolution)),
+                    height=int(abs(height_resolution)),
+                    outputType=gdal.GDT_Byte,
+                    dstNodata=nodata,
+                    creationOptions=['ZLEVEL=1'],
+                    format="PNG"
+                )
 
-            #close dataset
-            rgb_dataset.FlushCache()
-            rgb_dataset = None
+                print("exported band: " + str(band))
+
+                #close dataset
+                rgb_dataset.FlushCache()
+                rgb_dataset = None
+
+                #goes to next forecast
+                forecast += 1
 
     if (debug):
         end_time = time.time()
