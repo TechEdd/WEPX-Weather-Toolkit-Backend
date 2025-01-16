@@ -6,10 +6,14 @@ import os
 
 timeToDownload = 30
 
-#models Wait for first file available in minutes
-modelsLeadTime = {"HRRR": 48}
-#models interval of outputs per day in hours
-modelsIntervalOfOutputs = {"HRRR": 1}
+#models Wait for first file available in minutes (delay before availability)
+modelsLeadTime = {"HRRR": 48,
+                  "HRRRSH": 48
+                  }
+#models interval of outputs per day in hours (hours between each runs)
+modelsIntervalOfOutputs = {"HRRR": 1,
+                           "HRRRSH": 1
+                           }
 
 def isItTimeToDownload(model):
     """
@@ -99,8 +103,7 @@ def linkGenerator(model, run, forecastTime, variables, current_time=None, server
         if (model=="HRRR"):
             if (current_time == None):
                 current_time = datetime.now(timezone.utc)
-                current_time=[current_time.year,current_time.month,current_time.day]
-                current_time=str(current_time[0]) + str(current_time[1]) + str(current_time[2])
+                current_time = f"{current_time.year:04}{current_time.month:02}{current_time.day:02}"
             
             variableURL = ""
             for variable in variables:
@@ -108,6 +111,19 @@ def linkGenerator(model, run, forecastTime, variables, current_time=None, server
                     variableURL += f"var_{variable}=on&{level}=on&"
             
             url=f"{serverUrl}filter_hrrr_2d.pl?dir=%2Fhrrr.{current_time}%2Fconus&file=hrrr.t{run}z.wrfsfcf{str(forecastTime).zfill(2)}.grib2&{variableURL}"
+            print (f"download link: {url}")
+            return url
+        elif (model=="HRRRSH"):
+            if (current_time == None):
+                current_time = datetime.now(timezone.utc)
+                current_time = f"{current_time.year:04}{current_time.month:02}{current_time.day:02}"
+            
+            variableURL = ""
+            for variable in variables:
+                for level in variables[variable]:
+                    variableURL += f"var_{variable}=on&{level}=on&"
+
+            url=f"{serverUrl}filter_hrrr_sub.pl?dir=%2Fhrrr.{current_time}%2Fconus&file=hrrr.t{run}z.wrfsubhf{str(forecastTime).zfill(2)}.grib2&{variableURL}"
             print (f"download link: {url}")
             return url
         else:
@@ -135,7 +151,7 @@ def download(link, filepath, numbersOfRetry = 30, delayBeforeTryingAgain = 10):
     else:
         raise Exception("Download unsucessful, numbersOfRetry reached")
 
-def download_HRRR(run, variables, forecastTime=None, current_time=None):
+def download_model(model, run, variables, forecastTime=None, forecastNb=None, current_time=None):
     """
     Downloads HRRR model data for a given run and forecast time.
 
@@ -143,10 +159,14 @@ def download_HRRR(run, variables, forecastTime=None, current_time=None):
     It generates download links for each variable and level, and saves the data in the appropriate directory.
 
     Parameters:
+    - model : str
+        The model name (e.g., "HRRR")
     - run : str
         The model run time (e.g., "00", "06", "12", or "18").
     - variables: dict
         variables as keys and their item represent a list of the height to download
+    - forecastNb : int or None
+        Numbers of forecast in the model does, if in non-automated run (if forecastTime==None)
     - forecastTime : str or None
         The forecast hour to download (e.g., "03" for the 3-hour forecast). If None, all available forecast times are downloaded.
     - current_time : str
@@ -155,31 +175,33 @@ def download_HRRR(run, variables, forecastTime=None, current_time=None):
     Returns:
     - The output filepath: list
     """
-    print("started download HRRR")
-    if (run in ["00","06","12","18"]):
-        forecastNb = 48
-    else:
-        forecastNb = 18
+    print(f"started download {model}")
+    if (model=="HRRR"):
+        if (run in ["00","06","12","18"]):
+            forecastNb = 48
+        else:
+            forecastNb = 18
+
     
     #iterate over all forecastNb
     if (forecastTime==None):
         ouputFile = []
         for forecast in range(forecastNb):
-            outputFile.append(f"./downloads/HRRR/{run}/total.{forecastTime}.grib2")
+            outputFile.append(f"./downloads/{model}/{run}/total.{forecastTime}.grib2")
             forecastTime = str(forecast).zfill(2)
-            download_link = linkGenerator("HRRR",run,forecastTime,variables,current_time)
+            download_link = linkGenerator(model,run,forecastTime,variables,current_time)
             download(download_link, outputFile[-1])
 
         return outputFile
     
     #in automated run:
     else:
-        outputFile = f"./downloads/HRRR/{run}/total.{forecastTime}.grib2"
-        download_link = linkGenerator("HRRR",run,forecastTime,variables,current_time)
+        outputFile = f"./downloads/{model}/{run}/total.{forecastTime}.grib2"
+        download_link = linkGenerator(model,run,forecastTime,variables,current_time)
         download(download_link, outputFile)
         return [outputFile]
         
-    
+ 
 
 def waitForDataAvailable():
     """
