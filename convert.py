@@ -249,6 +249,8 @@ def formatMetadata(metadata):
         formatted = metadata.split("[")[0] + '_sigma_level'
     elif "NTAT" in metadata:
         formatted = "top_of_atmosphere"
+    elif "CTL" in metadata:
+        formatted = "cloud_top"
     else:
         raise Exception("level unknown", metadata)
     return "lev_" + formatted
