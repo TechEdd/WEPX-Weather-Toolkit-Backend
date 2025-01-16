@@ -9,7 +9,8 @@
 *.user
 *.userosscache
 *.sln.docstates
-./downloads/*
+./server/*
+
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
@@ -367,3 +368,4 @@ FodyWeavers.xsd
 /output.png.aux.xml
 /output_python.webp
 /downloads/HRRR
+/downloads/HRRRSH
