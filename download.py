@@ -116,7 +116,7 @@ def linkGenerator(model, run, forecastTime, variables, current_time=None, server
     else:
         raise("server not implemented")
 
-def download(link, filepath, numbersOfRetry = 10, delayBeforeTryingAgain = 10):
+def download(link, filepath, numbersOfRetry = 30, delayBeforeTryingAgain = 10):
     
     for test in range(numbersOfRetry):
         try:
@@ -132,6 +132,8 @@ def download(link, filepath, numbersOfRetry = 10, delayBeforeTryingAgain = 10):
             print(e)
             sleep(delayBeforeTryingAgain)
             pass
+    else:
+        raise Exception("Download unsucessful, numbersOfRetry reached")
 
 def download_HRRR(run, variables, forecastTime=None, current_time=None):
     """
