@@ -108,7 +108,7 @@ def processModel(model, timeOutput,current_time):
         
         for file in gribFiles:
             #in same folder as grib2 (but still get same name of grib2)
-            pngPath = '\\\\192.168.0.54\\testing\\downloads\\' + ".".join(file.split(".")[:-1]) + "."
+            pngPath = '\\\\192.168.0.54\\testing\\' + ".".join(file.split(".")[:-1]) + "."
             print(pngPath)
             pngFiles = convert.convertFromNCToPNG(file, pngPath, variablesHRRR, vmin=vminDict,vmax=vmaxDict, model=model)
 
