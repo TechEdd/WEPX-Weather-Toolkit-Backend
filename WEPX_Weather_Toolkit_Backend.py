@@ -1,11 +1,13 @@
 from multiprocessing import Process
+from concurrent.futures import ThreadPoolExecutor
+import threading
 from time import sleep
 import download
 import convert
 import shutil
 from os import system
 
-list_of_models = ["HRRRSH"]
+list_of_models = ["HRRRSH", "HRRR"]
 forecastNbDict = {"HRRR":18,
                   "HRRRSH":18
                   }
@@ -49,8 +51,13 @@ variablesHRRRSH = {"RETOP":["lev_cloud_top"],
 #extent of full output
 #extent=[-143.261719,13.410994,-39.023438,60.930432]
 
-download.timeToDownload = 56
+download.timeToDownload = 15
 convert.export_json = True
+
+
+# Dictionary to keep track of running models
+running_models = {}
+lock = threading.Lock()
 
 def processModel(model, timeOutput,current_time):
     """
@@ -110,13 +117,29 @@ def processModel(model, timeOutput,current_time):
             #in same folder as png
             webpFilename = ".".join(file.split(".")[:-1]) + ".webp"
             webpFiles = convert.convertToWEBP(file, webpFilename)
-    
-while(1):
-    for model in list_of_models: 
-        isItTimeToDownload, timeOutput, current_time = download.isItTimeToDownload(model)
-        if(isItTimeToDownload):
-            processModel(model, timeOutput, current_time)
-                
-        else:
-            print(f"Time before downloading: {timeOutput}")
-            sleep(10)
+
+with ThreadPoolExecutor() as executor:    
+    while(1):
+        for model in list_of_models:
+            isItTimeToDownload, timeOutput, current_time = download.isItTimeToDownload(model)
+            
+            if isItTimeToDownload:
+                with lock:
+                    # Check if the model is already being processed
+                    if model not in running_models:
+                        print(f"Processing model: {model}")
+                        # Submit the original processModel function to the executor
+                        future = executor.submit(processModel, model, timeOutput, current_time)
+                        # Track the running task
+                        running_models[model] = future
+
+                        # Attach a callback to remove from the dictionary once complete
+                        def remove_model_callback(fut):
+                            with lock:
+                                running_models.pop(model, None)
+                        
+                        future.add_done_callback(remove_model_callback)
+                    
+            else:
+                print(f"Time before downloading {model}: {timeOutput}")
+                sleep(10)
