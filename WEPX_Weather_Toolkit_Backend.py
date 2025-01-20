@@ -92,7 +92,7 @@ def processModel(model, timeOutput,current_time):
         forecastNb = forecastNbDict[model]
     
     try:
-        shutil.rmtree("../WEPX Website/downloads/" + model + "/" + run)
+        shutil.rmtree('\\\\192.168.0.54\\downloads\\' + model + '\\' + run)
         shutil.rmtree('\\\\192.168.0.54\\testing\\downloads\\' + model + '\\' + run)
 
     except Exception as e:
