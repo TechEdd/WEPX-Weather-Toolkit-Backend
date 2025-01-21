@@ -244,7 +244,10 @@ def formatMetadata(metadata):
     elif "SFC" in metadata:
         formatted = "surface"
     elif "EATM" in metadata:
-        formatted = "entire_atmosphere"
+        if ("(considered" in metadata):
+            formatted = "lev_entire_atmosphere_(considered_as_a_single_layer)"
+        else:
+            formatted = "entire_atmosphere"
     elif "SIGL" in metadata:
         formatted = metadata.split("[")[0] + '_sigma_level'
     elif "NTAT" in metadata:
