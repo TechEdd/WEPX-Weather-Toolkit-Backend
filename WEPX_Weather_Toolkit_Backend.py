@@ -7,7 +7,7 @@ import convert
 import shutil
 from os import system
 
-list_of_models = ["NAMNEST"]
+list_of_models = ["HRRR", "HRRRSH", "NAMNEST"]
 forecastNbDict = {"HRRR":18,
                   "HRRRSH":18,
                   "NAMNEST":60
