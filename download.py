@@ -8,11 +8,13 @@ timeToDownload = 30
 
 #models Wait for first file available in minutes (delay before availability)
 modelsLeadTime = {"HRRR": 48,
-                  "HRRRSH": 48
+                  "HRRRSH": 48,
+                  "NAMNEST": 100
                   }
 #models interval of outputs per day in hours (hours between each runs)
 modelsIntervalOfOutputs = {"HRRR": 1,
-                           "HRRRSH": 1
+                           "HRRRSH": 1,
+                           "NAMNEST": 6
                            }
 
 def isItTimeToDownload(model):
@@ -34,12 +36,11 @@ def isItTimeToDownload(model):
         - str : The current date in "YYYYMMDD" format.
     """
 
-    numbersOfOutputsInADay = 24/modelsIntervalOfOutputs[model]
     modelLeadTime = modelsLeadTime[model]
     current_time = datetime.now(timezone.utc)
 
     listOfOutputTimes = []
-    for hour in range(int(numbersOfOutputsInADay)):
+    for hour in range(0, 24, modelsIntervalOfOutputs[model]):
         listOfOutputTimes.append(
             datetime(current_time.year,
                     current_time.month, 
@@ -63,7 +64,7 @@ def isItTimeToDownload(model):
         current_time = current_time-timedelta(days=1)
 
     if (latestRun<current_time<latestRun+timedelta(minutes=timeToDownload)):
-        return True, latestRun.hour, current_time.strftime("%Y%m%d")
+        return True, latestRun.hour-modelLeadTime//60, current_time.strftime("%Y%m%d")
     else:
         time_before_next_run = ((latestRun + timedelta(hours=modelsIntervalOfOutputs[model]))-current_time).total_seconds()
         return False, time_before_next_run, current_time.strftime("%Y%m%d")
@@ -98,9 +99,11 @@ def linkGenerator(model, run, forecastTime, variables, current_time=None, server
     NotImplementedError:
         If a server other than "NOMADS" is specified.
     """
+    
     if (server=="NOMADS"):
         serverUrl = r"https://nomads.ncep.noaa.gov/cgi-bin/"
         if (model=="HRRR"):
+            isRunNbGood(run, model)
             if (current_time == None):
                 current_time = datetime.now(timezone.utc)
                 current_time = f"{current_time.year:04}{current_time.month:02}{current_time.day:02}"
@@ -114,6 +117,7 @@ def linkGenerator(model, run, forecastTime, variables, current_time=None, server
             print (f"download link: {url}")
             return url
         elif (model=="HRRRSH"):
+            isRunNbGood(run, model)
             if (current_time == None):
                 current_time = datetime.now(timezone.utc)
                 current_time = f"{current_time.year:04}{current_time.month:02}{current_time.day:02}"
@@ -126,13 +130,34 @@ def linkGenerator(model, run, forecastTime, variables, current_time=None, server
             url=f"{serverUrl}filter_hrrr_sub.pl?dir=%2Fhrrr.{current_time}%2Fconus&file=hrrr.t{run}z.wrfsubhf{str(forecastTime).zfill(2)}.grib2&{variableURL}"
             print (f"download link: {url}")
             return url
+        elif (model=="NAMNEST"):
+            isRunNbGood(run, model)
+            if (current_time == None):
+                current_time = datetime.now(timezone.utc)
+                current_time = f"{current_time.year:04}{current_time.month:02}{current_time.day:02}"
+            variableURL = ""
+            for variable in variables:
+                for level in variables[variable]:
+                    variableURL += f"var_{variable}=on&{level}=on&"
+            url=f"{serverUrl}filter_nam_conusnest.pl?dir=%2Fnam.{current_time}&file=nam.t{run}z.conusnest.hiresf{str(forecastTime).zfill(2)}.tm00.grib2&{variableURL}"
+            print (f"download link: {url}")
+            return url
+
         else:
-            raise("model not implemented")
+            raise Exception("model not implemented")
 
     else:
-        raise("server not implemented")
+        raise Exception("server not implemented")
 
-def download(link, filepath, numbersOfRetry = 30, delayBeforeTryingAgain = 10):
+    return url
+
+def isRunNbGood(run, model):
+    if (int(run) not in range(0, 24, modelsIntervalOfOutputs[model])):
+        raise Exception(str(run) + " is not in the model's accepted runs: " + str([hour for hour in range(0, 24, 6)]))
+        return False
+    return True
+
+def download(link, filepath, numbersOfRetry = 30, delayBeforeTryingAgain = 35):
     
     for test in range(numbersOfRetry):
         try:

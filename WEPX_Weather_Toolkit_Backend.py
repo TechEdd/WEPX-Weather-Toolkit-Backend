@@ -7,9 +7,10 @@ import convert
 import shutil
 from os import system
 
-list_of_models = ["HRRRSH", "HRRR"]
+list_of_models = ["NAMNEST"]
 forecastNbDict = {"HRRR":18,
-                  "HRRRSH":18
+                  "HRRRSH":18,
+                  "NAMNEST":60
                   }
 #absolute highest and lowest
 vminDict = {"DPT":-80,
@@ -20,6 +21,7 @@ vminDict = {"DPT":-80,
             "RETOP":0,
             "HAIL":0,
             "SBT124": 100,
+            "BRTMP": 100,
             "GUST": 0
             }
 vmaxDict = {"DPT":80,
@@ -30,6 +32,7 @@ vmaxDict = {"DPT":80,
             "RETOP":25000,
             "HAIL":1,
             "SBT124": 400,
+            "BRTMP": 400,
             "GUST": 115
             }
 
@@ -48,10 +51,19 @@ variablesHRRRSH = {"RETOP":["lev_cloud_top"],
                  "SBT124":["lev_top_of_atmosphere"]
                  }
 
+variablesNAMNEST = {"RETOP":["lev_cloud_top"], 
+                 "CAPE":["lev_surface"],
+                 "CIN":["lev_surface"],
+                 "DPT":["lev_2_m_above_ground"],
+                 "TMP":["lev_2_m_above_ground"],
+                 "REFC":["lev_entire_atmosphere_(considered_as_a_single_layer)"],
+                 "BRTMP":["lev_top_of_atmosphere"]
+                 }
+
 #extent of full output
 #extent=[-143.261719,13.410994,-39.023438,60.930432]
 
-download.timeToDownload = 15
+download.timeToDownload = 35
 convert.export_json = True
 
 
@@ -98,7 +110,7 @@ def processModel(model, timeOutput,current_time):
     except Exception as e:
         print(e)
 
-    for forecast in range(forecastNb):
+    for forecast in range(forecastNb+1):
         system("title Running " + model + " for run " + run + " on forecast " + str(forecast).zfill(2))
         print("downloading")
         forecast = str(forecast).zfill(2)
@@ -110,7 +122,7 @@ def processModel(model, timeOutput,current_time):
             #in same folder as grib2 (but still get same name of grib2)
             pngPath = '\\\\192.168.0.54\\testing\\' + ".".join(file.split(".")[:-1]) + "."
             print(pngPath)
-            pngFiles = convert.convertFromNCToPNG(file, pngPath, variablesHRRR, vmin=vminDict,vmax=vmaxDict, model=model)
+            pngFiles = convert.convertFromNCToPNG(file, pngPath, globals()["variables" + model], vmin=vminDict,vmax=vmaxDict, model=model)
 
         print("convert to WEBP")
         for file in pngFiles:
