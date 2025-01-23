@@ -245,7 +245,7 @@ def formatMetadata(metadata):
         formatted = "surface"
     elif "EATM" in metadata:
         if ("(considered" in metadata):
-            formatted = "lev_entire_atmosphere_(considered_as_a_single_layer)"
+            formatted = "entire_atmosphere_(considered_as_a_single_layer)"
         else:
             formatted = "entire_atmosphere"
     elif "SIGL" in metadata:
