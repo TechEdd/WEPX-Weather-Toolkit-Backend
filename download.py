@@ -162,7 +162,7 @@ def linkGenerator(model, run, forecastTime, variables, current_time=None, server
         raise Exception("server not yet implemented (WIP), use HPFX instead")
 
     elif (server=="HPFX"):
-        serverURL = "https://hpfx.collab.science.gc.ca"
+        serverURL = "http://hpfx.collab.science.gc.ca"
         isRunNbGood(run, model)
         if (current_time == None):
             current_time = datetime.now(timezone.utc)
