@@ -3,6 +3,7 @@ import re
 import time
 import json
 import os
+import math
 import warnings
 import numpy as np
 from osgeo import gdal, osr
@@ -99,6 +100,8 @@ def saveToJSON(extent, output_file, model):
         with open(output_file, 'w') as f:
             json.dump(data, f, indent=4)
 
+            
+
 def get_raster_extent_in_lonlat(dataset, model, output_file=output_json_file):
     """
     Get the extent of a raster in longitude and latitude (WGS84).
@@ -143,60 +146,103 @@ def get_raster_extent_in_lonlat(dataset, model, output_file=output_json_file):
     source_proj = osr.SpatialReference()
     source_proj.ImportFromWkt(dataset.GetProjection())
 
-    if source_proj.IsGeographic():
+    
+    """
+
+    code not working yet
+
+    if ("Pole rotation" in projection):
+        sample_rate = 1
+        # Initialize min and max values
+        lat_min, lon_max = float('inf'), -float('inf')
+        lon_min, lat_max = float('inf'), -float('inf')
+        lonp = float(projection.split(",")[projection.split(",").index('PARAMETER["Longitude of the southern pole (GRIB convention)"')+1])+180
+        latp = -float(projection.split(",")[projection.split(",").index('PARAMETER["Latitude of the southern pole (GRIB convention)"')+1])
+        for x in range(0, x_size, sample_rate):
+            for y in [0, y_size - 1]:  # top and bottom edges
+                # Get pixel (x, y) coordinates in dataset's projection
+                lon_r = geotransform[0] + x * geotransform[1] + y * geotransform[2]
+                lat_r = geotransform[3] + x * geotransform[4] + y * geotransform[5]
+
+                # Transform the coordinates to lat/lon
+                lon, lat = convert_pole_rotation_to_normal(lat_r, lon_r, lonp, latp)
+
+                # Update min/max lat and lon
+                lat_min = min(lat_min, lat)
+                lat_max = max(lat_max, lat)
+                lon_min = min(lon_min, lon)
+                lon_max = max(lon_max, lon)
+
+        for y in range(0, y_size, sample_rate):
+            for x in [0, x_size - 1]:  # left and right edges
+                # Get pixel (x, y) coordinates in dataset's projection
+                lon_r = geotransform[0] + x * geotransform[1] + y * geotransform[2]
+                lat_r = geotransform[3] + x * geotransform[4] + y * geotransform[5]
+
+                # Transform the coordinates to lat/lon
+                lon, lat = convert_pole_rotation_to_normal(lat_r, lon_r, lonp, latp)
+
+                # Update min/max lat and lon
+                lat_min = min(lat_min, lat)
+                lat_max = max(lat_max, lat)
+                lon_min = min(lon_min, lon)
+                lon_max = max(lon_max, lon)
+    """
+    if (model=="HRDPS"):
+        lat_min, lon_min, lat_max, lon_max = -152.78, 27.22, -40.7, 70.6 
+
+    elif (source_proj.IsGeographic()):
         # Return the extent using the geotransform if already in lat/lon (WGS84)
         lon_max = geotransform[0]
         lon_min = geotransform[0] + dataset.RasterXSize * geotransform[1]
         lat_max = geotransform[3]
         lat_min = geotransform[3] + dataset.RasterYSize * geotransform[5]
-        extent = [lat_min, lon_min, lat_max, lon_max]
+    else:
+        # Define the target projection (WGS84, lat/lon)
+        target_proj = osr.SpatialReference()
+        target_proj.ImportFromEPSG(4326)  # EPSG code for WGS84
 
+        # Create a coordinate transformation object
+        transform = osr.CoordinateTransformation(source_proj, target_proj)
 
-    # Define the target projection (WGS84, lat/lon)
-    target_proj = osr.SpatialReference()
-    target_proj.ImportFromEPSG(4326)  # EPSG code for WGS84
+        # Initialize min and max values
+        lat_min, lon_max = float('inf'), -float('inf')
+        lon_min, lat_max = float('inf'), -float('inf')
 
-    # Create a coordinate transformation object
-    transform = osr.CoordinateTransformation(source_proj, target_proj)
+        #To avoid processing every single pixel, sample along the edges of the image at a specified rate
+        #A lower sample_rate will make the result more accurate but slower.
+        sample_rate = 10
 
-    # Initialize min and max values
-    lat_min, lon_max = float('inf'), -float('inf')
-    lon_min, lat_max = float('inf'), -float('inf')
+        # Iterate over the dataset edges at the sample rate
+        for x in range(0, x_size, sample_rate):
+            for y in [0, y_size - 1]:  # top and bottom edges
+                # Get pixel (x, y) coordinates in dataset's projection
+                x_geo = geotransform[0] + x * geotransform[1]
+                y_geo = geotransform[3] + y * geotransform[5]
 
-    #To avoid processing every single pixel, sample along the edges of the image at a specified rate
-    #A lower sample_rate will make the result more accurate but slower.
-    sample_rate = 10
+                # Transform the coordinates to lat/lon
+                lon, lat, _ = transform.TransformPoint(x_geo, y_geo)
 
-    # Iterate over the dataset edges at the sample rate
-    for x in range(0, x_size, sample_rate):
-        for y in [0, y_size - 1]:  # top and bottom edges
-            # Get pixel (x, y) coordinates in dataset's projection
-            x_geo = geotransform[0] + x * geotransform[1]
-            y_geo = geotransform[3] + y * geotransform[5]
+                # Update min/max lat and lon
+                lat_min = min(lat_min, lat)
+                lat_max = max(lat_max, lat)
+                lon_min = min(lon_min, lon)
+                lon_max = max(lon_max, lon)
 
-            # Transform the coordinates to lat/lon
-            lon, lat, _ = transform.TransformPoint(x_geo, y_geo)
+        for y in range(0, y_size, sample_rate):
+            for x in [0, x_size - 1]:  # left and right edges
+                # Get pixel (x, y) coordinates in dataset's projection
+                x_geo = geotransform[0] + x * geotransform[1]
+                y_geo = geotransform[3] + y * geotransform[5]
 
-            # Update min/max lat and lon
-            lat_min = min(lat_min, lat)
-            lat_max = max(lat_max, lat)
-            lon_min = min(lon_min, lon)
-            lon_max = max(lon_max, lon)
+                # Transform the coordinates to lat/lon
+                lon, lat, _ = transform.TransformPoint(x_geo, y_geo)
 
-    for y in range(0, y_size, sample_rate):
-        for x in [0, x_size - 1]:  # left and right edges
-            # Get pixel (x, y) coordinates in dataset's projection
-            x_geo = geotransform[0] + x * geotransform[1]
-            y_geo = geotransform[3] + y * geotransform[5]
-
-            # Transform the coordinates to lat/lon
-            lon, lat, _ = transform.TransformPoint(x_geo, y_geo)
-
-            # Update min/max lat and lon
-            lat_min = min(lat_min, lat)
-            lat_max = max(lat_max, lat)
-            lon_min = min(lon_min, lon)
-            lon_max = max(lon_max, lon)
+                # Update min/max lat and lon
+                lat_min = min(lat_min, lat)
+                lat_max = max(lat_max, lat)
+                lon_min = min(lon_min, lon)
+                lon_max = max(lon_max, lon)
 
     print([lat_min, lon_min, lat_max, lon_max])
     extent = [lat_min, lon_min, lat_max, lon_max]
@@ -227,36 +273,57 @@ def calculateAspectRatio(extent):
     
     return aspect_ratio
 
-def formatMetadata(metadata):
+def formatMetadata(metadata, server=None, sharedModel=None):
     #format grib getDescription into downloaded level (here we don't take into account the lev_)
     #Height above ground level
-    if "HTGL" in metadata:
-        formatted = metadata.replace('[m]', '_m')
-        formatted = formatted.split('HTGL')[0] + 'above_ground'
-        formatted = formatted.replace(' ', '_')
-    elif "ISBL" in metadata:
-        if "Pa" in metadata:
-            formatted = metadata.split('[Pa]')[0].strip()  # Extract pascal level in front
-            formatted = int(formatted) // 1000 # convert to mb
-            formatted = f"{formatted}_mb"
+
+    #try asking Model object its server, otherwise defaults to NOMADS
+    if (server==None):
+        try:
+            server = sharedModel.server
+        except:
+            server = "NOMADS"
+    print(server)
+    if (server == "NOMADS"):
+        if "HTGL" in metadata:
+            formatted = metadata.replace('[m]', '_m')
+            formatted = formatted.split('HTGL')[0] + 'above_ground'
+            formatted = formatted.replace(' ', '_')
+        elif "ISBL" in metadata:
+            if "Pa" in metadata:
+                formatted = metadata.split('[Pa]')[0].strip()  # Extract pascal level in front
+                formatted = int(formatted) // 1000 # convert to mb
+                formatted = f"{formatted}_mb"
+            else:
+                raise Exception("level unknown", metadata)
+        elif "SFC" in metadata:
+            formatted = "surface"
+        elif "EATM" in metadata:
+            if ("(considered" in metadata):
+                formatted = "entire_atmosphere_(considered_as_a_single_layer)"
+            else:
+                formatted = "entire_atmosphere"
+        elif "SIGL" in metadata:
+            formatted = metadata.split("[")[0] + '_sigma_level'
+        elif "NTAT" in metadata:
+            formatted = "top_of_atmosphere"
+        elif "CTL" in metadata:
+            formatted = "cloud_top"
         else:
             raise Exception("level unknown", metadata)
-    elif "SFC" in metadata:
-        formatted = "surface"
-    elif "EATM" in metadata:
-        if ("(considered" in metadata):
-            formatted = "entire_atmosphere_(considered_as_a_single_layer)"
+        return "lev_" + formatted
+    elif (server == "HPFX" or server == "MSC"):
+        if "HTGL" in metadata:
+            formatted = metadata.replace('[m]', 'm')
+            formatted = "AGL-" + formatted.split('HTGL')[0]
+            formatted = formatted.replace(' ', '')
+        elif "SFC" in metadata:
+            formatted = "Sfc"
         else:
-            formatted = "entire_atmosphere"
-    elif "SIGL" in metadata:
-        formatted = metadata.split("[")[0] + '_sigma_level'
-    elif "NTAT" in metadata:
-        formatted = "top_of_atmosphere"
-    elif "CTL" in metadata:
-        formatted = "cloud_top"
+            raise Exception("level unknown (or not yet implemented) -> ", metadata)
+        return formatted
     else:
-        raise Exception("level unknown", metadata)
-    return "lev_" + formatted
+        raise Exception("Server not yet implemented")
 
 def decodeJSON(band, exportPath, variable, level, vmin, vmax):
     fullExportFile = exportPath + variable + "." + level + ".json"
@@ -271,7 +338,7 @@ def decodeJSON(band, exportPath, variable, level, vmin, vmax):
         json.dump(data, f, indent=0)
 
 
-def convertFromNCToPNG(inputFile="input.tif", exportPath="./", variablesToConvert=None, extent=None, vmin=0, vmax=10, nodata=None, model=None, width=None, jsonOutput=True):
+def convertFromNCToPNG(inputFile="input.tif", exportPath="./", variablesToConvert=None, extent=None, vmin=0, vmax=10, nodata=None, model=None, width=None, jsonOutput=True, sharedModel=None):
     '''
     Converts a NetCDF (or GeoTIFF) file to a 256 base PNG.
 
@@ -281,8 +348,6 @@ def convertFromNCToPNG(inputFile="input.tif", exportPath="./", variablesToConver
     Values are set in a RGB array which contains 256-base of the raster base
     giving a 24-bit image that can afterwards be processed.
     Calculates automatically width
-
-
 
     Parameters:
     inputFile (str): The file name of the NetCDF or GeoTIFF input file.
@@ -300,7 +365,7 @@ def convertFromNCToPNG(inputFile="input.tif", exportPath="./", variablesToConver
     model (str): (optional) model name for extent name
                  if extent not set, model use for render setting the extent
                  in a file and naming it
-
+    sharedModel (object): (optional) used for formatMetadata to get server from model object, defaults to NOMADS
     Returns:
     filepath (list): filepath of rendered images.
     '''
@@ -359,7 +424,7 @@ def convertFromNCToPNG(inputFile="input.tif", exportPath="./", variablesToConver
                         if ("all_lev" in variablesToConvert[variable]):
                             level = "all_lev"
                         #checks if current level is in the list to convert otherwise break
-                        elif not (formatMetadata(dataset.GetRasterBand(band).GetDescription()) in variablesToConvert[variable]):
+                        elif not (formatMetadata(dataset.GetRasterBand(band).GetDescription(), sharedModel=sharedModel) in variablesToConvert[variable]):
                             continue
                         level = variablesToConvert[variable][0]
                     except:
@@ -454,7 +519,11 @@ def convertFromNCToPNG(inputFile="input.tif", exportPath="./", variablesToConver
         print(f"Finished converting '{inputFile}' to PNG: {elapsed_time:.2f} seconds")
 
     dataset = None
-    return allRenderedFiles
+    if (len(allRenderedFiles)==1):
+        return allRenderedFiles[0]
+    else:
+        return allRenderedFiles
+    
 
 if __name__ == "__main__":
     convertFromNCToPNG(vmin=0.1, vmax=1, nodata=0)
