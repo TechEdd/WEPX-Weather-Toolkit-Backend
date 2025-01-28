@@ -7,10 +7,11 @@ import convert
 import shutil
 from os import system
 
-list_of_models = ["HRRR", "HRRRSH", "NAMNEST"]
+list_of_models = ["HRDPS", "HRRR", "HRRRSH", "NAMNEST"]
 forecastNbDict = {"HRRR":18,
                   "HRRRSH":18,
-                  "NAMNEST":60
+                  "NAMNEST":60,
+                  "HRDPS":48
                   }
 #absolute highest and lowest
 vminDict = {"DPT":-80,
@@ -60,10 +61,16 @@ variablesNAMNEST = {"RETOP":["lev_cloud_top"],
                  "BRTMP":["lev_top_of_atmosphere"]
                  }
 
+variablesHRDPS = {"CAPE":["Sfc"],
+                  "DPT":["AGL-2m"],
+                  "TMP":["AGL-2m"],
+                  "GUST":["AGL-10m"]
+                 }
+
 #extent of full output
 #extent=[-143.261719,13.410994,-39.023438,60.930432]
 
-download.timeToDownload = 35
+download.timeToDownload = 15
 convert.export_json = True
 
 
@@ -71,7 +78,15 @@ convert.export_json = True
 running_models = {}
 lock = threading.Lock()
 
-def processModel(model, timeOutput,current_time):
+class Model:
+    def __init__(self):
+        pass  # Initialize with no predefined attributes
+
+    def __getattr__(self, name):
+        # Fallback for undefined attributes
+        raise BaseException(name + "is not defined")
+
+def processModel(modelName, timeOutput,current_time):
     """
     Downloads weather model data for a specified model and time, and converts the downloaded files to PNG and WEBP formats.
 
@@ -80,7 +95,7 @@ def processModel(model, timeOutput,current_time):
     the PNG to WEBP format for web use.
 
     Parameters:
-    - model : str
+    - modelName : str
         The weather model to process (e.g., "HRRR").
     - timeOutput : int
         The model run time, which will be zero-padded to two digits (e.g., 00, 06, 12, 18).
@@ -93,65 +108,73 @@ def processModel(model, timeOutput,current_time):
     - Convert each GRIB2 file to PNG using a variable-specific range (vmin, vmax).
     - Convert the PNG files to WEBP format for optimized web use.
     """
+    model = Model()
+    model.name = modelName
+    model.variables = globals()["variables" + model.name]
+
     print(current_time)
-    run = str(timeOutput).zfill(2)
-    if (model=="HRRR"):
-        if (run in ["00", "06", "12", "18"]):
-            forecastNb = 48
+    model.run = str(timeOutput).zfill(2)
+    if (model.name=="HRRR"):
+        if (model.run in ["00", "06", "12", "18"]):
+            model.forecastNb = 48
         else:
-            forecastNb = 18
+            model.forecastNb = 18
     else:
-        forecastNb = forecastNbDict[model]
+        model.forecastNb = forecastNbDict[model.name]
     
     try:
-        shutil.rmtree('\\\\192.168.0.54\\testing\\downloads\\' + model + '\\' + run)
-        shutil.rmtree("downloads/" + model + "/" + run)
+        shutil.rmtree('\\\\192.168.0.54\\testing\\downloads\\' + model.name + '\\' + model.run)
+        shutil.rmtree("downloads/" + model.name + "/" + model.run)
 
     except Exception as e:
         print(e)
 
-    for forecast in range(forecastNb+1):
-        system("title Running " + model + " for run " + run + " on forecast " + str(forecast).zfill(2))
+    for forecast in range(model.forecastNb+1):
+        system("title Running " + model.name + " for run " + model.run + " on forecast " + str(forecast).zfill(2))
         print("downloading")
         forecast = str(forecast).zfill(2)
-        gribFiles = download.download_model(model, run, globals()["variables" + model], forecast, current_time)
+        model.gribPaths = download.download_model(model.name, model.run, model.variables, forecast, current_time, sharedModel=model)
         
         print("convert to PNG")
-        
-        for file in gribFiles:
+        model.pngFiles = []
+        for file in model.gribPaths:
             #in same folder as grib2 (but still get same name of grib2)
             pngPath = '\\\\192.168.0.54\\testing\\' + ".".join(file.split(".")[:-1]) + "."
             print(pngPath)
-            pngFiles = convert.convertFromNCToPNG(file, pngPath, globals()["variables" + model], vmin=vminDict,vmax=vmaxDict, model=model)
+            model.pngFiles.append(convert.convertFromNCToPNG(file, pngPath, model.variables, vmin=vminDict,vmax=vmaxDict, model=model.name, sharedModel = model))
+        if (len(model.pngFiles) == 1):
+            model.pngFiles = model.pngFiles[0]
 
         print("convert to WEBP")
-        for file in pngFiles:
+        for file in model.pngFiles:
             #in same folder as png
             webpFilename = ".".join(file.split(".")[:-1]) + ".webp"
-            webpFiles = convert.convertToWEBP(file, webpFilename)
+            model.webpFiles = convert.convertToWEBP(file, webpFilename)
 
-with ThreadPoolExecutor() as executor:    
-    while(1):
-        for model in list_of_models:
-            isItTimeToDownload, timeOutput, current_time = download.isItTimeToDownload(model)
+if __name__ == "__main__":
+    with ThreadPoolExecutor() as executor:    
+        while(1):
+            for model in list_of_models:
+                isItTimeToDownload, timeOutput, current_time = download.isItTimeToDownload(model)
             
-            if isItTimeToDownload:
-                with lock:
-                    # Check if the model is already being processed
-                    if model not in running_models:
-                        print(f"Processing model: {model}")
-                        # Submit the original processModel function to the executor
-                        future = executor.submit(processModel, model, timeOutput, current_time)
-                        # Track the running task
-                        running_models[model] = future
+                if isItTimeToDownload:
+                    with lock:
+                        # Check if the model is already being processed
+                        if model not in running_models:
+                            print(f"Processing model: {model}")
 
-                        # Attach a callback to remove from the dictionary once complete
-                        def remove_model_callback(fut):
-                            with lock:
-                                running_models.pop(model, None)
+                            # Submit the original processModel function to the executor
+                            future = executor.submit(processModel, model, timeOutput, current_time)
+                            # Track the running task
+                            running_models[model] = future
+
+                            # Attach a callback to remove from the dictionary once complete
+                            def remove_model_callback(fut):
+                                with lock:
+                                    running_models.pop(model, None)
                         
-                        future.add_done_callback(remove_model_callback)
+                            future.add_done_callback(remove_model_callback)
                     
-            else:
-                print(f"Time before downloading {model}: {timeOutput}")
-                sleep(10)
+                else:
+                    print(f"Time before downloading {model}: {timeOutput}")
+                    sleep(10)
