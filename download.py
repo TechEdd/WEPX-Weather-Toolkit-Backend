@@ -9,12 +9,14 @@ timeToDownload = 30
 #models Wait for first file available in minutes (delay before availability)
 modelsLeadTime = {"HRRR": 48,
                   "HRRRSH": 48,
-                  "NAMNEST": 100
+                  "NAMNEST": 100,
+                  "HRDPS": 195
                   }
 #models interval of outputs per day in hours (hours between each runs)
 modelsIntervalOfOutputs = {"HRRR": 1,
                            "HRRRSH": 1,
-                           "NAMNEST": 6
+                           "NAMNEST": 6,
+                           "HRDPS": 6
                            }
 
 def isItTimeToDownload(model):
@@ -70,7 +72,7 @@ def isItTimeToDownload(model):
         return False, time_before_next_run, current_time.strftime("%Y%m%d")
 
 
-def linkGenerator(model, run, forecastTime, variables, current_time=None, server="NOMADS"):
+def linkGenerator(model, run, forecastTime, variables, current_time=None, server=None, sharedModel=None):
     """
     Generates a download link for weather model data from the specified server, based on the model, run time, forecast time, variable, and level.
 
@@ -90,6 +92,7 @@ def linkGenerator(model, run, forecastTime, variables, current_time=None, server
         The current date in "YYYYMMDD" format. Defaults to the current UTC time.
     server : str, optional
         The server to use for the data download. Defaults to "NOMADS".
+    sharedModel : model object with server proprety
 
     Returns:
     str:
@@ -99,15 +102,29 @@ def linkGenerator(model, run, forecastTime, variables, current_time=None, server
     NotImplementedError:
         If a server other than "NOMADS" is specified.
     """
+
+    if (server==None):
+        if (model in ["HRRR","HRRSH","NAMNEST"]):
+            server = "NOMADS"
+        elif (model in ["HRDPS","GDPS","RDPS"]):
+            server = "HPFX"
     
+    #set server attribute to object model
+    try:
+        sharedModel.server = server
+    except:
+        pass
+
     if (server=="NOMADS"):
         serverUrl = r"https://nomads.ncep.noaa.gov/cgi-bin/"
+        
+        if (current_time == None):
+            current_time = datetime.now(timezone.utc)
+            current_time = f"{current_time.year:04}{current_time.month:02}{current_time.day:02}"
+
         if (model=="HRRR"):
             isRunNbGood(run, model)
-            if (current_time == None):
-                current_time = datetime.now(timezone.utc)
-                current_time = f"{current_time.year:04}{current_time.month:02}{current_time.day:02}"
-            
+
             variableURL = ""
             for variable in variables:
                 for level in variables[variable]:
@@ -115,12 +132,9 @@ def linkGenerator(model, run, forecastTime, variables, current_time=None, server
             
             url=f"{serverUrl}filter_hrrr_2d.pl?dir=%2Fhrrr.{current_time}%2Fconus&file=hrrr.t{run}z.wrfsfcf{str(forecastTime).zfill(2)}.grib2&{variableURL}"
             print (f"download link: {url}")
-            return url
+            return [url]
         elif (model=="HRRRSH"):
             isRunNbGood(run, model)
-            if (current_time == None):
-                current_time = datetime.now(timezone.utc)
-                current_time = f"{current_time.year:04}{current_time.month:02}{current_time.day:02}"
             
             variableURL = ""
             for variable in variables:
@@ -129,22 +143,42 @@ def linkGenerator(model, run, forecastTime, variables, current_time=None, server
 
             url=f"{serverUrl}filter_hrrr_sub.pl?dir=%2Fhrrr.{current_time}%2Fconus&file=hrrr.t{run}z.wrfsubhf{str(forecastTime).zfill(2)}.grib2&{variableURL}"
             print (f"download link: {url}")
-            return url
+            return [url]
         elif (model=="NAMNEST"):
             isRunNbGood(run, model)
-            if (current_time == None):
-                current_time = datetime.now(timezone.utc)
-                current_time = f"{current_time.year:04}{current_time.month:02}{current_time.day:02}"
+
             variableURL = ""
             for variable in variables:
                 for level in variables[variable]:
                     variableURL += f"var_{variable}=on&{level}=on&"
             url=f"{serverUrl}filter_nam_conusnest.pl?dir=%2Fnam.{current_time}&file=nam.t{run}z.conusnest.hiresf{str(forecastTime).zfill(2)}.tm00.grib2&{variableURL}"
             print (f"download link: {url}")
-            return url
+            return [url]
 
         else:
-            raise Exception("model not implemented")
+            raise Exception("model not implemented in current server")
+    
+    elif (server=="MSC"):
+        raise Exception("server not yet implemented (WIP), use HPFX instead")
+
+    elif (server=="HPFX"):
+        serverURL = "https://hpfx.collab.science.gc.ca"
+        isRunNbGood(run, model)
+        if (current_time == None):
+            current_time = datetime.now(timezone.utc)
+            current_time = f"{current_time.year:04}{current_time.month:02}{current_time.day:02}"
+        
+        if (model=="HRDPS"):  
+            isRunNbGood(run, model)
+            url = []
+            for variable in variables:
+                for level in variables[variable]:
+                    #https://hpfx.collab.science.gc.ca/20250123/WXO-DD/model_hrdps/continental/2.5km/06/001/20250123T06Z_MSC_HRDPS_DPT_AGL-2m_RLatLon0.0225_PT001H.grib2
+                    remoteFilename = f"{current_time}T{run}Z_MSC_HRDPS_{variable}_{level}_RLatLon0.0225_PT{str(forecastTime).zfill(3)}H.grib2"
+                    url.append(f"{serverURL}/{current_time}/WXO-DD/model_hrdps/continental/2.5km/{run}/{str(forecastTime).zfill(3)}/{remoteFilename}") 
+                    print (f"download link: {url}")
+            return url
+
 
     else:
         raise Exception("server not implemented")
@@ -157,26 +191,43 @@ def isRunNbGood(run, model):
         return False
     return True
 
-def download(link, filepath, numbersOfRetry = 30, delayBeforeTryingAgain = 35):
+def download(link, filepath = None, numbersOfRetry = 30, delayBeforeTryingAgain = 35):
     
-    for test in range(numbersOfRetry):
-        try:
-            print(f"downloading try: {test}")
-            print(link)
+    downloadedFiles = []
 
-            os.makedirs(os.path.dirname(filepath), exist_ok=True)
-            status = urllib.request.urlopen(link).getcode()
-            urllib.request.urlretrieve(link, filepath) #download the file
-            break
-        except Exception as e:
-            print("Download unsuccessful")
-            print(e)
-            sleep(delayBeforeTryingAgain)
-            pass
-    else:
-        raise Exception("Download unsucessful, numbersOfRetry reached")
+    #if only one link, put it into array
+    if (isinstance(link, str)):
+        link = [link]
 
-def download_model(model, run, variables, forecastTime=None, forecastNb=None, current_time=None):
+    for link in link:
+        for test in range(numbersOfRetry):
+            #skip urlParams
+            filename = (link.split("/")[-1]).split("?")[0]
+            if ("nomads" in link):
+                filename = filename.replace("pl","grib2")
+                print(filename)
+            print("link " + link)
+            downloadPath = filepath + filename
+            
+            try:
+                print(f"downloading try: {test}")
+                print(link)
+
+                os.makedirs(os.path.dirname(filepath), exist_ok=True)
+                status = urllib.request.urlopen(link).getcode()
+                urllib.request.urlretrieve(link, downloadPath) #download the file
+                downloadedFiles.append(downloadPath)
+                break
+            except Exception as e:
+                print("Download unsuccessful")
+                print(e)
+                sleep(delayBeforeTryingAgain)
+                pass
+        else:
+            raise Exception("Download unsucessful, numbersOfRetry reached")
+    return downloadedFiles
+
+def download_model(model, run, variables, forecastTime=None, forecastNb=None, current_time=None, sharedModel=None):
     """
     Downloads HRRR model data for a given run and forecast time.
 
@@ -210,21 +261,20 @@ def download_model(model, run, variables, forecastTime=None, forecastNb=None, cu
     
     #iterate over all forecastNb
     if (forecastTime==None):
-        ouputFile = []
+        outputFile = []
         for forecast in range(forecastNb):
-            outputFile.append(f"./downloads/{model}/{run}/total.{forecastTime}.grib2")
+            preOutputFile = f"./downloads/{model}/{run}/total.{forecastTime}."
             forecastTime = str(forecast).zfill(2)
-            download_link = linkGenerator(model,run,forecastTime,variables,current_time)
-            download(download_link, outputFile[-1])
+            download_link = linkGenerator(model,run,forecastTime,variables,current_time,sharedModel=sharedModel)
+            outputFile.append(download(download_link, preOutputFile))
 
         return outputFile
     
     #in automated run:
     else:
-        outputFile = f"./downloads/{model}/{run}/total.{forecastTime}.grib2"
-        download_link = linkGenerator(model,run,forecastTime,variables,current_time)
-        download(download_link, outputFile)
-        return [outputFile]
+        preOutputFile = f"./downloads/{model}/{run}/total.{forecastTime}."
+        download_link = linkGenerator(model,run,forecastTime,variables,current_time,sharedModel=sharedModel)
+        return download(download_link, preOutputFile)
         
  
 
