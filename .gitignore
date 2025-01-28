@@ -10,6 +10,7 @@
 *.userosscache
 *.sln.docstates
 ./server/*
+downloads/*
 
 
 # User-specific files (MonoDevelop/Xamarin Studio)
@@ -367,7 +368,3 @@ FodyWeavers.xsd
 /output.png
 /output.png.aux.xml
 /output_python.webp
-/downloads/HRRR
-/downloads/HRRRSH
-/downloads/NAMNEST/00
-/downloads/HRDPS/00
