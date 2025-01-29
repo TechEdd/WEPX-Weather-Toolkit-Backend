@@ -1,4 +1,5 @@
 from multiprocessing import Process
+import traceback
 from concurrent.futures import ThreadPoolExecutor
 import threading
 from time import sleep
@@ -152,29 +153,35 @@ def processModel(modelName, timeOutput,current_time):
             model.webpFiles = convert.convertToWEBP(file, webpFilename)
 
 if __name__ == "__main__":
-    with ThreadPoolExecutor() as executor:    
-        while(1):
-            for model in list_of_models:
-                isItTimeToDownload, timeOutput, current_time = download.isItTimeToDownload(model)
+    try:
+        with ThreadPoolExecutor() as executor:    
+            while(1):
+                for model in list_of_models:
+                    isItTimeToDownload, timeOutput, current_time = download.isItTimeToDownload(model)
             
-                if isItTimeToDownload:
-                    with lock:
-                        # Check if the model is already being processed
-                        if model not in running_models:
-                            print(f"Processing model: {model}")
+                    if isItTimeToDownload:
+                        with lock:
+                            # Check if the model is already being processed
+                            if model not in running_models:
+                                print(f"Processing model: {model}")
 
-                            # Submit the original processModel function to the executor
-                            future = executor.submit(processModel, model, timeOutput, current_time)
-                            # Track the running task
-                            running_models[model] = future
+                                # Submit the original processModel function to the executor
+                                future = executor.submit(processModel, model, timeOutput, current_time)
+                                # Track the running task
+                                running_models[model] = future
 
-                            # Attach a callback to remove from the dictionary once complete
-                            def remove_model_callback(fut):
-                                with lock:
-                                    running_models.pop(model, None)
+                                # Attach a callback to remove from the dictionary once complete
+                                def remove_model_callback(fut):
+                                    with lock:
+                                        running_models.pop(model, None)
                         
-                            future.add_done_callback(remove_model_callback)
+                                future.add_done_callback(remove_model_callback)
                     
-                else:
-                    print(f"Time before downloading {model}: {timeOutput}")
-                    sleep(10)
+                    else:
+                        print(f"Time before downloading {model}: {timeOutput}")
+                        sleep(10)
+
+    except Exception as e:
+        with open('log.txt', 'a') as f:
+            f.write(str(e))
+            f.write(traceback.format_exc())
