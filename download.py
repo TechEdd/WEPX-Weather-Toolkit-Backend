@@ -104,7 +104,7 @@ def linkGenerator(model, run, forecastTime, variables, current_time=None, server
     """
 
     if (server==None):
-        if (model in ["HRRR","HRRSH","NAMNEST"]):
+        if (model in ["HRRR","HRRRSH","NAMNEST"]):
             server = "NOMADS"
         elif (model in ["HRDPS","GDPS","RDPS"]):
             server = "HPFX"
