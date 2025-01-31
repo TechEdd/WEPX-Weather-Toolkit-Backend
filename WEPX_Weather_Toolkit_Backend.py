@@ -109,79 +109,79 @@ def processModel(modelName, timeOutput,current_time):
     - Convert each GRIB2 file to PNG using a variable-specific range (vmin, vmax).
     - Convert the PNG files to WEBP format for optimized web use.
     """
-    model = Model()
-    model.name = modelName
-    model.variables = globals()["variables" + model.name]
+    try:
+        model = Model()
+        model.name = modelName
+        model.variables = globals()["variables" + model.name]
 
-    print(current_time)
-    model.run = str(timeOutput).zfill(2)
-    if (model.name=="HRRR"):
-        if (model.run in ["00", "06", "12", "18"]):
-            model.forecastNb = 48
+        print(current_time)
+        model.run = str(timeOutput).zfill(2)
+        if (model.name=="HRRR"):
+            if (model.run in ["00", "06", "12", "18"]):
+                model.forecastNb = 48
+            else:
+                model.forecastNb = 18
         else:
-            model.forecastNb = 18
-    else:
-        model.forecastNb = forecastNbDict[model.name]
+            model.forecastNb = forecastNbDict[model.name]
     
-    try:
-        shutil.rmtree('\\\\192.168.0.54\\testing\\downloads\\' + model.name + '\\' + model.run)
-        shutil.rmtree("downloads/" + model.name + "/" + model.run)
+        try:
+            shutil.rmtree('\\\\192.168.0.54\\testing\\downloads\\' + model.name + '\\' + model.run)
+            shutil.rmtree("downloads/" + model.name + "/" + model.run)
 
-    except Exception as e:
-        print(e)
+        except Exception as e:
+            print(e)
 
-    for forecast in range(model.forecastNb+1):
-        system("title Running " + model.name + " for run " + model.run + " on forecast " + str(forecast).zfill(2))
-        print("downloading")
-        forecast = str(forecast).zfill(2)
-        model.gribPaths = download.download_model(model.name, model.run, model.variables, forecast, current_time, sharedModel=model)
+        for forecast in range(model.forecastNb+1):
+            system("title Running " + model.name + " for run " + model.run + " on forecast " + str(forecast).zfill(2))
+            print("downloading")
+            forecast = str(forecast).zfill(2)
+            model.gribPaths = download.download_model(model.name, model.run, model.variables, forecast, current_time, sharedModel=model)
         
-        print("convert to PNG")
-        model.pngFiles = []
-        for file in model.gribPaths:
-            #in same folder as grib2 (but still get same name of grib2)
-            pngPath = '\\\\192.168.0.54\\testing\\' + ".".join(file.split(".")[:-1]) + "."
-            print(pngPath)
-            model.pngFiles.append(convert.convertFromNCToPNG(file, pngPath, model.variables, vmin=vminDict,vmax=vmaxDict, model=model.name, sharedModel = model))
-        if (len(model.pngFiles) == 1):
-            model.pngFiles = model.pngFiles[0]
+            print("convert to PNG")
+            model.pngFiles = []
+            for file in model.gribPaths:
+                #in same folder as grib2 (but still get same name of grib2)
+                pngPath = '\\\\192.168.0.54\\testing\\' + ".".join(file.split(".")[:-1]) + "."
+                print(pngPath)
+                model.pngFiles.append(convert.convertFromNCToPNG(file, pngPath, model.variables, vmin=vminDict,vmax=vmaxDict, model=model.name, sharedModel = model))
+            if (len(model.pngFiles) == 1):
+                model.pngFiles = model.pngFiles[0]
 
-        print("convert to WEBP")
-        for file in model.pngFiles:
-            #in same folder as png
-            webpFilename = ".".join(file.split(".")[:-1]) + ".webp"
-            model.webpFiles = convert.convertToWEBP(file, webpFilename)
-
-if __name__ == "__main__":
-    try:
-        with ThreadPoolExecutor() as executor:    
-            while(1):
-                for model in list_of_models:
-                    isItTimeToDownload, timeOutput, current_time = download.isItTimeToDownload(model)
-            
-                    if isItTimeToDownload:
-                        with lock:
-                            # Check if the model is already being processed
-                            if model not in running_models:
-                                print(f"Processing model: {model}")
-
-                                # Submit the original processModel function to the executor
-                                future = executor.submit(processModel, model, timeOutput, current_time)
-                                # Track the running task
-                                running_models[model] = future
-
-                                # Attach a callback to remove from the dictionary once complete
-                                def remove_model_callback(fut):
-                                    with lock:
-                                        running_models.pop(model, None)
-                        
-                                future.add_done_callback(remove_model_callback)
-                    
-                    else:
-                        print(f"Time before downloading {model}: {timeOutput}")
-                        sleep(10)
-
+            print("convert to WEBP")
+            for file in model.pngFiles:
+                #in same folder as png
+                webpFilename = ".".join(file.split(".")[:-1]) + ".webp"
+                model.webpFiles = convert.convertToWEBP(file, webpFilename)           
     except Exception as e:
         with open('log.txt', 'a') as f:
             f.write(str(e))
             f.write(traceback.format_exc())
+
+
+if __name__ == "__main__":
+    with ThreadPoolExecutor() as executor:    
+        while(1):
+            for model in list_of_models:
+                isItTimeToDownload, timeOutput, current_time = download.isItTimeToDownload(model)
+            
+                if isItTimeToDownload:
+                    with lock:
+                        # Check if the model is already being processed
+                        if model not in running_models:
+                            print(f"Processing model: {model}")
+
+                            # Submit the original processModel function to the executor
+                            future = executor.submit(processModel, model, timeOutput, current_time)
+                            # Track the running task
+                            running_models[model] = future
+
+                            # Attach a callback to remove from the dictionary once complete
+                            def remove_model_callback(fut):
+                                with lock:
+                                    running_models.pop(model, None)
+                        
+                            future.add_done_callback(remove_model_callback)
+                    
+                else:
+                    print(f"Time before downloading {model}: {timeOutput}")
+                    sleep(10)

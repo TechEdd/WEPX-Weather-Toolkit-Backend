@@ -216,6 +216,8 @@ def download(link, filepath = None, numbersOfRetry = 30, delayBeforeTryingAgain 
                 os.makedirs(os.path.dirname(filepath), exist_ok=True)
                 status = urllib.request.urlopen(link).getcode()
                 urllib.request.urlretrieve(link, downloadPath) #download the file
+                f = open(downloadPath)
+                f.close()
                 downloadedFiles.append(downloadPath)
                 break
             except Exception as e:
