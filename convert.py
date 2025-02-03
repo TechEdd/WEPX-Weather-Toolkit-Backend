@@ -491,7 +491,7 @@ def convertFromNCToPNG(inputFile="input.tif", exportPath="./", variablesToConver
                 height_resolution = width_resolution/calculateAspectRatio(extent)
 
                 #ensure folder exists
-                if os.path.splitext(os.path.abspath(exportPath)[1]:  # Checks if there's a file extension
+                if os.path.splitext(os.path.abspath(exportPath)[1]):  # Checks if there's a file extension
                     folder = os.path.dirname(exportPath)
                 else:
                     folder = path
