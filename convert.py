@@ -494,7 +494,7 @@ def convertFromNCToPNG(inputFile="input.tif", exportPath="./", variablesToConver
                 if os.path.splitext(os.path.abspath(exportPath)[1]):  # Checks if there's a file extension
                     folder = os.path.dirname(exportPath)
                 else:
-                    folder = path
+                    folder = exportPath
 
                 os.makedirs(folder, exist_ok=True)
 
