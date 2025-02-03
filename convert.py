@@ -350,7 +350,7 @@ def convertFromNCToPNG(inputFile="input.tif", exportPath="./", variablesToConver
 
     Parameters:
     inputFile (str): The file name of the NetCDF or GeoTIFF input file.
-    exportPath (str): The file path for the exported PNG.
+    exportPath (str): The file path (folder) for the exported PNG.
     variablesToConvert (dict): Dict representing in the keys the variables and in the items
                                the levels to convert
     extent (list): Bounding box coordinates [xmin, ymin, xmax, ymax] 
@@ -489,6 +489,14 @@ def convertFromNCToPNG(inputFile="input.tif", exportPath="./", variablesToConver
             
 
                 height_resolution = width_resolution/calculateAspectRatio(extent)
+
+                #ensure folder exists
+                if os.path.splitext(os.path.abspath(exportPath)[1]:  # Checks if there's a file extension
+                    folder = os.path.dirname(exportPath)
+                else:
+                    folder = path
+
+                os.makedirs(folder, exist_ok=True)
 
                 gdal.Warp(
                     fullExportFile,
