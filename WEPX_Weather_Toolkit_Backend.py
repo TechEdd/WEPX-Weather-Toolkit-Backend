@@ -126,6 +126,7 @@ def processModel(modelName, timeOutput,current_time):
     
         try:
             shutil.rmtree('\\\\192.168.0.54\\testing\\downloads\\' + model.name + '\\' + model.run)
+            print("removed " + '\\\\192.168.0.54\\testing\\downloads\\' + model.name + '\\' + model.run)
             shutil.rmtree("downloads/" + model.name + "/" + model.run)
 
         except Exception as e:
@@ -176,7 +177,7 @@ if __name__ == "__main__":
                             running_models[model] = future
 
                             # Attach a callback to remove from the dictionary once complete
-                            def remove_model_callback(fut):
+                            def remove_model_callback(fut, model=model):
                                 with lock:
                                     running_models.pop(model, None)
                         
