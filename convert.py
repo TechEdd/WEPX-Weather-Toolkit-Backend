@@ -491,12 +491,6 @@ def convertFromNCToPNG(inputFile="input.tif", exportPath="./", variablesToConver
                 height_resolution = width_resolution/calculateAspectRatio(extent)
 
                 #ensure folder exists
-                if os.path.splitext(os.path.abspath(exportPath)[1]):  # Checks if there's a file extension
-                    folder = os.path.dirname(exportPath)
-                    print("created folder: " + folder)
-                else:
-                    folder = exportPath
-
                 os.makedirs(folder, exist_ok=True)
 
                 gdal.Warp(
