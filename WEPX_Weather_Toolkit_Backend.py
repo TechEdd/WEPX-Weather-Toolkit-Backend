@@ -143,6 +143,7 @@ def processModel(modelName, timeOutput,current_time):
             for file in model.gribPaths:
                 #in same folder as grib2 (but still get same name of grib2)
                 pngPath = '\\\\192.168.0.54\\testing\\' + ".".join(file.split(".")[:-1]) + "."
+                pngPath = pngPath.replace("/", "\\")
                 print(pngPath)
                 model.pngFiles.append(convert.convertFromNCToPNG(file, pngPath, model.variables, vmin=vminDict,vmax=vmaxDict, model=model.name, sharedModel = model))
             if (len(model.pngFiles) == 1):
