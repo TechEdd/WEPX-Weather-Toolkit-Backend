@@ -6,7 +6,7 @@ from time import sleep
 import download
 import convert
 import shutil
-from os import system
+import os
 
 list_of_models = ["HRDPS", "HRRR", "HRRRSH", "NAMNEST"]
 forecastNbDict = {"HRRR":18,
@@ -133,7 +133,7 @@ def processModel(modelName, timeOutput,current_time):
             print(e)
 
         for forecast in range(model.forecastNb+1):
-            system("title Running " + model.name + " for run " + model.run + " on forecast " + str(forecast).zfill(2))
+            os.system("title Running " + model.name + " for run " + model.run + " on forecast " + str(forecast).zfill(2))
             print("downloading")
             forecast = str(forecast).zfill(2)
             model.gribPaths = download.download_model(model.name, model.run, model.variables, forecast, current_time, sharedModel=model)
@@ -143,7 +143,7 @@ def processModel(modelName, timeOutput,current_time):
             for file in model.gribPaths:
                 #in same folder as grib2 (but still get same name of grib2)
                 pngPath = '\\\\192.168.0.54\\testing\\' + ".".join(file.split(".")[:-1]) + "."
-                pngPath = pngPath.replace("/", "\\")
+                pngPath = os.path.normpath(pngPath)
                 print(pngPath)
                 model.pngFiles.append(convert.convertFromNCToPNG(file, pngPath, model.variables, vmin=vminDict,vmax=vmaxDict, model=model.name, sharedModel = model))
             if (len(model.pngFiles) == 1):
