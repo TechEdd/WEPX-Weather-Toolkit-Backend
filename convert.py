@@ -384,10 +384,11 @@ def convertFromNCToPNG(inputFile="input.tif", exportPath="./", variablesToConver
     if filetype == "grib2":
         # Iterate through all bands in the dataset
         for band in range(1, dataset.RasterCount + 1):
-            metadata = bandObj.GetMetadata()
+            metadata = dataset.GetRasterBand(band).GetMetadata()
         
-            # Retrieve 'GRIB_ELEMENT' from metadata if it exists
-            if (desc := metadata.get('GRIB_ELEMENT')):  
+            # Retrieve 'GRIB_ELEMENT' from metadata
+            desc = metadata.get('GRIB_ELEMENT')
+            if desc:  
                 variablesDict.setdefault(desc, []).append(band)
 
         
