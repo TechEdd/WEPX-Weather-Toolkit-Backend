@@ -7,6 +7,8 @@ import download
 import convert
 import shutil
 import os
+from datetime import datetime, timedelta
+
 
 list_of_models = ["HRDPS", "HRRR", "HRRRSH", "NAMNEST"]
 forecastNbDict = {"HRRR":18,
@@ -99,7 +101,7 @@ def processModel(modelName, timeOutput,current_time):
     - modelName : str
         The weather model to process (e.g., "HRRR").
     - timeOutput : int
-        The model run time, which will be zero-padded to two digits (e.g., 00, 06, 12, 18).
+        The model run time (e.g., 0, 6, 12, 18).
     - current_time : str
         The current date in "YYYYMMDD" format used for downloading the correct dataset.
     
@@ -116,6 +118,8 @@ def processModel(modelName, timeOutput,current_time):
 
         print(current_time)
         model.run = str(timeOutput).zfill(2)
+        model.runEpoch = int(datetime.strptime(current_time, "%Y%m%d").timestamp()) + timeOutput * 3600
+
         if (model.name=="HRRR"):
             if (model.run in ["00", "06", "12", "18"]):
                 model.forecastNb = 48
@@ -125,9 +129,18 @@ def processModel(modelName, timeOutput,current_time):
             model.forecastNb = forecastNbDict[model.name]
     
         try:
-            shutil.rmtree('\\\\192.168.0.54\\testing\\downloads\\' + model.name + '\\' + model.run)
-            print("removed " + '\\\\192.168.0.54\\testing\\downloads\\' + model.name + '\\' + model.run)
-            shutil.rmtree("downloads/" + model.name + "/" + model.run)
+            folderToDelete = '\\\\192.168.0.54\\testing\\downloads\\' + model.name + '\\'
+            #delete folders older in remote older than 2 days
+            cutoff_time = datetime.now() - timedelta(days=2)
+            for folder in os.listdir(folderToDelete):
+                folder_full_path = os.path.join(folderToDelete, folder)
+                if os.path.isdir(folder_full_path):
+                    folder_mtime = os.path.getmtime(folder_full_path)
+                    if folder_mtime < cutoff_time:
+                        shutil.rmtree(folder_full_path)  # Delete the folder
+                        print(f"Deleted: {folder_full_path}")
+            #delete temp folder
+             shutil.rmtree("downloads/" + model.name + "/" + model.run)
 
         except Exception as e:
             print(e)
@@ -142,7 +155,7 @@ def processModel(modelName, timeOutput,current_time):
             model.pngFiles = []
             for file in model.gribPaths:
                 #in same folder as grib2 (but still get same name of grib2)
-                pngPath = '\\\\192.168.0.54\\testing\\' + ".".join(file.split(".")[:-1]) + "."
+                pngPath = '\\\\192.168.0.54\\testing\\' + model.name + '\\' + model.runEpoch + '\\' + (".".join(file.split(".")[:-1]) + ".").split["/"][-1]
                 pngPath = os.path.normpath(pngPath)
                 print(pngPath)
                 model.pngFiles.append(convert.convertFromNCToPNG(file, pngPath, model.variables, vmin=vminDict,vmax=vmaxDict, model=model.name, sharedModel = model))
