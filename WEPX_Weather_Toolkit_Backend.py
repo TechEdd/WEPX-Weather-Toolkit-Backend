@@ -118,7 +118,7 @@ def processModel(modelName, timeOutput,current_time):
 
         print(current_time)
         model.run = str(timeOutput).zfill(2)
-        model.runEpoch = int(datetime.strptime(current_time, "%Y%m%d").timestamp()) + timeOutput * 3600
+        model.runEpoch = str(int(datetime.strptime(current_time, "%Y%m%d").timestamp()) + timeOutput * 3600)
 
         if (model.name=="HRRR"):
             if (model.run in ["00", "06", "12", "18"]):
