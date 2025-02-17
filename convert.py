@@ -374,7 +374,6 @@ def convertFromNCToPNG(inputFile="input.tif", exportPath="./", variablesToConver
         start_time = time.time()
 
     dataset = gdal.Open(inputFile)
-    bandObj = dataset.GetRasterBand(band)
 
     #get all rasterBands for a variable -----------------------
     
@@ -407,7 +406,7 @@ def convertFromNCToPNG(inputFile="input.tif", exportPath="./", variablesToConver
 
     if (model == "HRRRSH"):
         #if hrrrsh run is at zero, than only one forecast
-        if (int(bandObj.GetMetadata()['GRIB_FORECAST_SECONDS']) != 0):
+        if (int(dataset.GetRasterBand(band).GetMetadata()['GRIB_FORECAST_SECONDS']) != 0):
             numbersOfForecast = 4
         else:
             numbersOfForecast = 1
@@ -418,6 +417,7 @@ def convertFromNCToPNG(inputFile="input.tif", exportPath="./", variablesToConver
     for variable in variablesDict:
         forecast=0
         for band in variablesDict[variable]:
+                bandObj = dataset.GetRasterBand(band)
                 # checks whether it's all_lev in which case continue the conversion
                 # otherwise the level is not wanted so go to next band
                 #print(variable + str(variablesToConvert[variable]))
