@@ -374,6 +374,7 @@ def convertFromNCToPNG(inputFile="input.tif", exportPath="./", variablesToConver
         start_time = time.time()
 
     dataset = gdal.Open(inputFile)
+    bandObj = dataset.GetRasterBand(band)
 
     #get all rasterBands for a variable -----------------------
     
@@ -385,7 +386,7 @@ def convertFromNCToPNG(inputFile="input.tif", exportPath="./", variablesToConver
         #check all bands to get the number of the bands that contains the requested variable
         variablesDict.setdefault(desc, []).append(band)
         for band in range(1, dataset.RasterCount + 1)
-        if (desc := dataset.GetRasterBand(band).GetMetadata()['GRIB_ELEMENT'])
+        if (desc := bandObj.GetMetadata()['GRIB_ELEMENT'])
         }
         
     else:
@@ -403,7 +404,7 @@ def convertFromNCToPNG(inputFile="input.tif", exportPath="./", variablesToConver
 
     if (model == "HRRRSH"):
         #if hrrrsh run is at zero, than only one forecast
-        if (int(dataset.GetRasterBand(1).GetMetadata()['GRIB_FORECAST_SECONDS']) != 0):
+        if (int(bandObj.GetMetadata()['GRIB_FORECAST_SECONDS']) != 0):
             numbersOfForecast = 4
         else:
             numbersOfForecast = 1
@@ -416,25 +417,25 @@ def convertFromNCToPNG(inputFile="input.tif", exportPath="./", variablesToConver
         for band in variablesDict[variable]:
                 # checks whether it's all_lev in which case continue the conversion
                 # otherwise the level is not wanted so go to next band
-                print(variable + str(variablesToConvert[variable]))
+                #print(variable + str(variablesToConvert[variable]))
                 if not (variablesToConvert==None):
                     #if formatMetadata fails, then skip
                     try:
                         if ("all_lev" in variablesToConvert[variable]):
                             level = "all_lev"
                         #checks if current level is in the list to convert otherwise break
-                        elif not (formatMetadata(dataset.GetRasterBand(band).GetDescription(), sharedModel=sharedModel) in variablesToConvert[variable]):
+                        elif not (formatMetadata(bandObj.GetDescription(), sharedModel=sharedModel) in variablesToConvert[variable]):
                             continue
                         level = variablesToConvert[variable][0]
                     except:
                         continue
                 else: 
                     # Replace non-alphabetic characters with underscores for file format
-                    level = re.sub(r'[^a-zA-Z]', '_', dataset.GetRasterBand(band).GetDescription())
+                    level = re.sub(r'[^a-zA-Z]', '_', bandObj.GetDescription())
             
 
 
-                data_array = dataset.GetRasterBand(band).ReadAsArray().astype(float)
+                data_array = bandObj.ReadAsArray().astype(float)
                 if (model=="HRRRSH"):
                     fullExportFile = exportPath + str(int(forecast*(60/numbersOfForecast))).zfill(2) + "." + variable + "." + level + ".png"
                 else:
@@ -459,11 +460,11 @@ def convertFromNCToPNG(inputFile="input.tif", exportPath="./", variablesToConver
                 if (isinstance(vmin, dict) and isinstance(vmax, dict)):
                     rgb_array = float_to_rgb(data_array, vmin[variable], vmax[variable])
                     if jsonOutput:
-                        decodeJSON(dataset.GetRasterBand(band), exportPathJSON, variable, level, vmin[variable], vmax[variable])
+                        decodeJSON(bandObj, exportPathJSON, variable, level, vmin[variable], vmax[variable])
                 else:
                     rgb_array = float_to_rgb(data_array, vmin, vmax)
                     if jsonOutput:
-                        decodeJSON(dataset.GetRasterBand(band), exportPathJSON, variable, level, vmin, vmax)
+                        decodeJSON(bandObj, exportPathJSON, variable, level, vmin, vmax)
 
                 if (extent==None):
                     extent = get_raster_extent_in_lonlat(dataset, model)
