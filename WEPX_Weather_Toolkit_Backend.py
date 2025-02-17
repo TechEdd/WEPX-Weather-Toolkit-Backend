@@ -135,7 +135,7 @@ def processModel(modelName, timeOutput,current_time):
             for folder in os.listdir(folderToDelete):
                 folder_full_path = os.path.join(folderToDelete, folder)
                 if os.path.isdir(folder_full_path):
-                    folder_mtime = os.path.getmtime(folder_full_path)
+                    folder_mtime = datetime.fromtimestamp(os.path.getmtime(folder_full_path))
                     if folder_mtime < cutoff_time:
                         shutil.rmtree(folder_full_path)  # Delete the folder
                         print(f"Deleted: {folder_full_path}")
