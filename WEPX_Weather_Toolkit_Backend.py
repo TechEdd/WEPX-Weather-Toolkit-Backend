@@ -140,7 +140,7 @@ def processModel(modelName, timeOutput,current_time):
                         shutil.rmtree(folder_full_path)  # Delete the folder
                         print(f"Deleted: {folder_full_path}")
             #delete temp folder
-             shutil.rmtree("downloads/" + model.name + "/" + model.run)
+            shutil.rmtree("downloads/" + model.name + "/" + model.run)
 
         except Exception as e:
             print(e)
