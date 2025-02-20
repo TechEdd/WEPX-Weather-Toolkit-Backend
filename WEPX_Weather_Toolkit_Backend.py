@@ -131,7 +131,7 @@ def processModel(modelName, timeOutput,current_time):
         try:
             folderToDelete = '\\\\192.168.0.54\\testing\\downloads\\' + model.name + '\\'
             #delete folders older in remote older than 2 days
-            cutoff_time = datetime.now() - timedelta(days=2)
+            cutoff_time = datetime.now() - timedelta(days=1)
             for folder in os.listdir(folderToDelete):
                 folder_full_path = os.path.join(folderToDelete, folder)
                 if os.path.isdir(folder_full_path):
