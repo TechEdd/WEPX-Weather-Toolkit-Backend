@@ -44,6 +44,7 @@ vmaxDict = {"DPT":80,
 variablesHRRR = {"RETOP":["lev_cloud_top"], 
                  "CAPE":["lev_surface"],
                  "CIN":["lev_surface"],
+                 "GUST":["lev_surface"],
                  "DPT":["lev_2_m_above_ground"],
                  "TMP":["lev_2_m_above_ground"],
                  "HAIL":["lev_0.1_sigma_level"],
@@ -52,12 +53,14 @@ variablesHRRR = {"RETOP":["lev_cloud_top"],
                  }
 variablesHRRRSH = {"RETOP":["lev_cloud_top"],
                  "REFC":["lev_entire_atmosphere"],
+                 "GUST":["lev_surface"],
                  "SBT124":["lev_top_of_atmosphere"]
                  }
 
 variablesNAMNEST = {"RETOP":["lev_cloud_top"], 
                  "CAPE":["lev_surface"],
                  "CIN":["lev_surface"],
+                 "GUST":["lev_surface"],
                  "DPT":["lev_2_m_above_ground"],
                  "TMP":["lev_2_m_above_ground"],
                  "REFC":["lev_entire_atmosphere_(considered_as_a_single_layer)"],
