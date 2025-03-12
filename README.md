@@ -10,7 +10,7 @@ It then converts it to PNG file using GDAL. The outputed file is a PNG file cont
 This program is still in early stage and not finished
 
 ## Usage
-**WEPX_Weather_Toolkit_Backend.py** is the main program containing the loop to check and download the file using the other python files.
+**run_model_.py** is the main program containing the loop to check and download the file using the other python files.
 
 **createMapSVG.py** is a test python code to render the world map using Cartopy for FrontEnd use.
 
@@ -42,7 +42,7 @@ Currently none-standard libraries are:
 
 ## Adding models
 
-**WEPX_Weather_Toolkit_Backend.py**
+**run_model.py**
 
 * add in *list of model* the model name
 * add in *forecastNbDict* the model name and max forecast number
