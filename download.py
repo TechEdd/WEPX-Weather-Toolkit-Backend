@@ -19,7 +19,7 @@ modelsIntervalOfOutputs = {"HRRR": 1,
                            "HRDPS": 6
                            }
 
-def isItTimeToDownload(model):
+def isItTimeToDownloadModel(model):
     """
     Determines if it's time to download data from a weather model based on the model's update frequency and lead time.
     
@@ -296,7 +296,7 @@ def waitForDataAvailable():
     
     """
     for models in modelsLeadTime.keys():
-        isAvailable, timeOutput = isItTimeToDownload(models)
+        isAvailable, timeOutput = isItTimeToDownloadModel(models)
         if (isAvailable):
             print(f"{models} is available for {timeOutput}z")
             # 2 digit attributes

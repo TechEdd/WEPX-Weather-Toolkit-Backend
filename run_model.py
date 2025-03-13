@@ -180,7 +180,7 @@ if __name__ == "__main__":
     with ThreadPoolExecutor() as executor:    
         while(1):
             for model in list_of_models:
-                isItTimeToDownload, timeOutput, current_time = download.isItTimeToDownload(model)
+                isItTimeToDownload, timeOutput, current_time = download.isItTimeToDownloadModel(model)
             
                 if isItTimeToDownload:
                     with lock:
