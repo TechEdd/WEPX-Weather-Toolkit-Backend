@@ -3,6 +3,10 @@ from time import sleep
 import urllib.request
 from multiprocessing import Process
 import os
+import secrets
+import urllib.request
+import base64
+from bs4 import BeautifulSoup
 
 timeToDownload = 30
 
@@ -19,6 +23,49 @@ modelsIntervalOfOutputs = {"HRRR": 1,
                            "HRDPS": 6
                            }
 
+def listRemoteFiles(url, username=None, password=None):
+    """
+    list files of remote HTML/http directory
+    """
+    request = urllib.request.Request(url)
+
+    # Use authentication only if both username and password are provided
+    if username and password:
+        credentials = f"{username}:{password}"
+        encoded_credentials = base64.b64encode(credentials.encode()).decode()
+        request.add_header("Authorization", f"Basic {encoded_credentials}")
+
+    with urllib.request.urlopen(request) as response:
+        html = response.read().decode()
+
+    soup = BeautifulSoup(html, 'html.parser')
+    files = [a['href'] for a in soup.find_all('a', href=True) if not a['href'].startswith('?')]
+    
+    return files
+
+def isNewRadarFile(server, radarID, lastFile=None, username=None, password=None):
+    """
+    lastFile = last filename to be downloaded (Leave None for getting lastFile)
+    server
+    """
+    if not (username and password):
+        username, password = secrets.username, secrets.password
+
+    utc_now = datetime.now(timezone.utc)
+
+    if (server=="HPFX"):
+        serverName = "hpfx.collab.science.gc.ca"
+        formatted_date = utc_now.strftime('%Y%m%d')
+        url=f"http://{serverName}/{formatted_date}/radar/volume-scans/{radarID}"
+
+    if (lastFile==None):
+        return True, listRemoteFiles(url,username,password)[-1]
+    else:
+        lastFileNow = listRemoteFiles(url,username,password)[-1]
+        if (lastFileNow!=lastFile):
+            return True, lastFileNow
+        else:
+            return False, lastFileNow
 def isItTimeToDownload(model):
     """
     Determines if it's time to download data from a weather model based on the model's update frequency and lead time.
@@ -191,13 +238,14 @@ def isRunNbGood(run, model):
         return False
     return True
 
-def download(link, filepath = None, numbersOfRetry = 30, delayBeforeTryingAgain = 35):
+def download(link, filepath = None, username = None, password = None, numbersOfRetry = 30, delayBeforeTryingAgain = 35):
     
     downloadedFiles = []
 
     #if only one link, put it into array
     if (isinstance(link, str)):
         link = [link]
+    
 
     for link in link:
         for test in range(numbersOfRetry):
@@ -213,9 +261,17 @@ def download(link, filepath = None, numbersOfRetry = 30, delayBeforeTryingAgain 
                 print(f"downloading try: {test}")
                 print(link)
 
+                request = urllib.request.Request(link)
+
+                # Use authentication only if both username and password are provided
+                if username and password:
+                    credentials = f"{username}:{password}"
+                    encoded_credentials = base64.b64encode(credentials.encode()).decode()
+                    request.add_header("Authorization", f"Basic {encoded_credentials}")
+                
                 os.makedirs(os.path.dirname(filepath), exist_ok=True)
-                status = urllib.request.urlopen(link).getcode()
-                urllib.request.urlretrieve(link, downloadPath) #download the file
+                with urllib.request.urlopen(request) as response, open(downloadPath, "wb") as out_file:
+                    out_file.write(response.read())
                 f = open(downloadPath)
                 f.close()
                 downloadedFiles.append(downloadPath)
