@@ -3,7 +3,7 @@ from time import sleep
 import urllib.request
 from multiprocessing import Process
 import os
-import secrets
+import secret
 import urllib.request
 import base64
 from bs4 import BeautifulSoup
@@ -49,7 +49,7 @@ def isNewRadarFile(server, radarID, lastFile=None, username=None, password=None)
     server
     """
     if not (username and password):
-        username, password = secrets.username, secrets.password
+        username, password = secret.username, secret.password
 
     utc_now = datetime.now(timezone.utc)
 
@@ -66,6 +66,7 @@ def isNewRadarFile(server, radarID, lastFile=None, username=None, password=None)
             return True, lastFileNow
         else:
             return False, lastFileNow
+
 def isItTimeToDownload(model):
     """
     Determines if it's time to download data from a weather model based on the model's update frequency and lead time.
