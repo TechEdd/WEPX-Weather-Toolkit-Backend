@@ -1,10 +1,13 @@
 import re
 import time
+from datetime import datetime, timezone
 import json
 import os
 import math
 import warnings
 import numpy as np
+import pyart
+import PIL
 from osgeo import gdal, osr
 gdal.UseExceptions()
 from wand.image import Image
@@ -336,6 +339,99 @@ def decodeJSON(band, exportPath, variable, level, vmin, vmax):
     with open(fullExportFile, 'w') as f:
         json.dump(data, f, indent=0)
 
+def processRadarSweep(radar, variable, sweep, rangeExtrems, export_filename):
+    slice_indices = radar.get_slice(sweep)
+    datetimeObject = datetime.strptime(radar.time["units"].split(" ")[-1], "%Y-%m-%dT%H:%M:%SZ")
+
+    radarTimeStart = int(datetimeObject.replace(tzinfo=timezone.utc).timestamp())
+    sweepStart = radarTimeStart + radar.time["data"][slice_indices][0]
+    sweepStop = radarTimeStart + radar.time["data"][slice_indices][-1]
+    scanType = radar.scan_type
+    latitudeOfRadar = radar.latitude["data"][0]
+    longitudeOfRadar = radar.longitude["data"][0]
+    export_filename = export_filename + "." + str(radarTimeStart) + ".webp"
+    arrayToGrayscaleWEBP(radar.fields[variable]["data"][slice_indices],export_filename,rangeExtrems)
+
+
+def arrayToGrayscaleWEBP(array, output_path, value_range):
+    min_val, max_val = value_range
+
+    # Linearly scale data to [0, 255]
+    scaled = ((array - min_val) / (max_val - min_val) * 255).clip(0, 255).astype(np.uint8)
+
+    # Create an alpha mask (0 where NaN, 255 otherwise)
+    alpha = np.where(np.isnan(array), 0, 255).astype(np.uint8)
+
+    # Expand to RGBA with RGB all equal for better WebP compression
+    rgba = np.stack([scaled, scaled, scaled, alpha], axis=-1)
+
+    # Convert to image and save as lossless WebP
+    img = PIL.Image.fromarray(rgba, mode="RGBA")
+    img.save(output_path, format="WebP", lossless=True)
+
+
+def addRadarVariable(variableName, radar,  reflectivity_field = None, threshold_dBZ = 10):
+    radarVariableList = list(radar.fields.keys())
+    if (variableName == "Echo Tops"):
+        if not (reflectivity_field):
+            #automatically search for reflectivty field
+            reflectivity_field = list(filter(lambda x: "reflectivity" in x, radarVariableList))[0]
+         
+        reflectivity = radar.fields[reflectivity_field]["data"]
+        gate_altitudes = radar.gate_altitude["data"]  # Altitude of each radar gate
+
+        # Create an empty array to store echo tops for each sweep
+        echo_tops_3d = np.full((360, radar.ngates, radar.nsweeps), np.nan)  
+        # Iterate through each sweep (each radar slice)
+        for sweep in range(radar.nsweeps-1):
+            # Get the slice for the current sweep
+            slice_indices = radar.get_slice(sweep)
+            # Get the reflectivity for the current sweep
+            reflectivity_sweep = radar.fields[reflectivity_field]["data"][slice_indices]
+            # Get the altitude for the current sweep
+            gate_altitudes_sweep = radar.gate_altitude["data"][slice_indices]
+    
+            if (reflectivity_sweep.shape[0]>360):
+                reflectivity_sweep = reflectivity_sweep[::reflectivity_sweep.shape[0]//360,:]
+                gate_altitudes_sweep = gate_altitudes_sweep[::gate_altitudes_sweep.shape[0]//360,:]
+
+            mask = np.where(reflectivity_sweep >= threshold_dBZ,gate_altitudes_sweep, np.nan)
+    
+            # Mask reflectivity values below the threshold
+            echo_tops_3d[:,:,sweep] = mask
+
+        #Entire Volume shape to the array
+        echo_tops_2d = np.full((radar.nrays, radar.ngates),np.nan)
+        echo_tops_2d[:echo_tops_3d.shape[0],:echo_tops_3d.shape[1]] = np.nanmax(echo_tops_3d, axis=2)
+
+        # Add the echo tops as a new field in the radar object
+        echo_top_field = {
+            'data': echo_tops_2d,
+            'long_name': 'Echo Top Height',
+            'units': 'meters'
+        }
+        radar.add_field('echo_tops', echo_top_field)
+        return radar
+
+    else:
+        raise BaseException("Variable not yet implemented")
+
+def decodeCanadianRadar(filename):
+    '''
+    return a Py ART radar object
+    '''
+    tempFilename = "temp.hdf5"
+    #remove first two lines containing headers
+    with open(filename, 'rb') as fin:
+        data = fin.read().splitlines(True)
+    with open(tempFilename, 'wb') as fout:
+        fout.writelines(data[2:])
+    radar = pyart.aux_io.read_odim_h5(tempFilename)
+    try:
+        os.remove(tempFilename)
+    except:
+        pass
+    return radar
 
 def convertFromNCToPNG(inputFile="input.tif", exportPath="./", variablesToConvert=None, extent=None, vmin=0, vmax=10, nodata=None, model=None, width=None, jsonOutput=True, sharedModel=None):
     '''
