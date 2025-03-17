@@ -1,4 +1,6 @@
 import time
+import json
+import os
 from multiprocessing import Process
 import threading
 import traceback
@@ -8,6 +10,8 @@ from datetime import datetime, timedelta, timezone
 import download
 import convert
 import secret
+
+jsonlatlonPath = "radar_latlon.json"
 
 list_of_radars = {
     "canada": ["CASBV","CASSF","CASFT"]
@@ -30,6 +34,26 @@ limitedTilts = 4;
 canadaFileSteps = 6
 canadaListOfMinutes = range(0, 60, canadaFileSteps)
 
+def latlonToJSON(radar, radarID, filename=jsonlatlonPath):
+    lat = radar.latitude['data'][0]
+    lon = radar.longitude['data'][0]
+    
+    # Load existing data if file exists
+    if os.path.exists(filename):
+        with open(filename, "r") as f:
+            radar_data = json.load(f)
+    else:
+        radar_data = {}
+
+    # Update or add radar position
+    radar_data[radarID] = {"lat": lat, "lon": lon}
+
+    # Save back to JSON
+    with open(filename, "w") as f:
+        json.dump(radar_data, f, indent=4)
+
+    print(f"Radar position updated in {filename}")
+
 def processCanadianRadar(radarID, filename, server="HPFX", formatted_date=None):
     if (formatted_date==None):
         formatted_date = datetime.now(timezone.utc).strftime('%Y%m%d')
@@ -42,6 +66,7 @@ def processCanadianRadar(radarID, filename, server="HPFX", formatted_date=None):
     for file in downloaded_files:
         radar = convert.decodeCanadianRadar(file)
         radar = convert.addRadarVariable("Echo Tops",radar)
+        latlonToJSON(radar, radarID)
         for variable in list(radar.fields.keys()):
             if variable in list(variablesRange.keys()):
                 if variable in variablesWithFullTilts:
