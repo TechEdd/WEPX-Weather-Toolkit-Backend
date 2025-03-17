@@ -37,6 +37,7 @@ canadaListOfMinutes = range(0, 60, canadaFileSteps)
 def latlonToJSON(radar, radarID, filename=jsonlatlonPath):
     lat = radar.latitude['data'][0]
     lon = radar.longitude['data'][0]
+    max_range = str(radar.range['data'].max())
     
     # Load existing data if file exists
     if os.path.exists(filename):
@@ -46,7 +47,7 @@ def latlonToJSON(radar, radarID, filename=jsonlatlonPath):
         radar_data = {}
 
     # Update or add radar position
-    radar_data[radarID] = {"lat": lat, "lon": lon}
+    radar_data[radarID] = {"lat": lat, "lon": lon, "range": max_range}
 
     # Save back to JSON
     with open(filename, "w") as f:
