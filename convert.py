@@ -350,10 +350,11 @@ def processRadarSweep(radar, variable, sweep, rangeExtrems, export_filename):
     latitudeOfRadar = radar.latitude["data"][0]
     longitudeOfRadar = radar.longitude["data"][0]
     export_filename = export_filename + "." + str(radarTimeStart) + ".webp"
+    metadata = {"range":radar.range['data'].max()}
     arrayToGrayscaleWEBP(radar.fields[variable]["data"][slice_indices],export_filename,rangeExtrems)
 
 
-def arrayToGrayscaleWEBP(array, output_path, value_range):
+def arrayToGrayscaleWEBP(array, output_path, value_range, metadata=None):
     min_val, max_val = value_range
 
     # Linearly scale data to [0, 255]
@@ -365,9 +366,16 @@ def arrayToGrayscaleWEBP(array, output_path, value_range):
     # Expand to RGBA with RGB all equal for better WebP compression
     rgba = np.stack([scaled, scaled, scaled, alpha], axis=-1)
 
+    if metadata:
+        fileMetadata = PIL.PngImagePlugin.PngInfo()
+        for key, value in metadata.items():
+            fileMetadata.add_text(key, value)
+    else:
+        fileMetadata = None
+      
     # Convert to image and save as lossless WebP
     img = PIL.Image.fromarray(rgba, mode="RGBA")
-    img.save(output_path, format="WebP", lossless=True)
+    img.save(output_path, format="WebP", lossless=True, pnginfo=fileMetadata)
 
 
 def addRadarVariable(variableName, radar,  reflectivity_field = None, threshold_dBZ = 10):
