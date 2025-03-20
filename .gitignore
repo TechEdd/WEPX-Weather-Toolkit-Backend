@@ -368,3 +368,5 @@ FodyWeavers.xsd
 /output.png
 /output.png.aux.xml
 /output_python.webp
+/secrets.py
+/secret.py
