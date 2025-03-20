@@ -339,6 +339,22 @@ def decodeJSON(band, exportPath, variable, level, vmin, vmax):
     with open(fullExportFile, 'w') as f:
         json.dump(data, f, indent=0)
 
+def saveRadarJSON(filename="metadata.json", scanStart=None, sweepStart=None, sweepStop=None, scanType=None, rangeExtrems=[-20,100]):
+    data = {
+        "scanStart": scanStart,
+        "sweepStart": sweepStart,
+        "sweepStop": sweepStop,
+        "scanType": scanType,
+        "vmin": rangeExtrems[0],
+        "vmax": rangeExtrems[1]
+    }
+    
+    # Write the data to the specified JSON file
+    with open(filename, "w") as json_file:
+        json.dump(data, json_file)
+
+    print(f"Data has been exported to {filename}")
+
 def processRadarSweep(radar, variable, sweep, rangeExtrems, export_filename):
     slice_indices = radar.get_slice(sweep)
     datetimeObject = datetime.strptime(radar.time["units"].split(" ")[-1], "%Y-%m-%dT%H:%M:%SZ")
@@ -351,6 +367,9 @@ def processRadarSweep(radar, variable, sweep, rangeExtrems, export_filename):
     longitudeOfRadar = radar.longitude["data"][0]
     export_filename = export_filename + "." + str(radarTimeStart) + ".webp"
     metadata = {"range":radar.range['data'].max()}
+    saveRadarJSON(export_filename.replace("webp","json"), radarTimeStart, sweepStart, sweepStop, scanType, rangeExtrems)
+
+
     arrayToGrayscaleWEBP(radar.fields[variable]["data"][slice_indices],export_filename,rangeExtrems)
 
 
