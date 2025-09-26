@@ -132,7 +132,7 @@ def processModel(modelName, timeOutput,current_time):
             model.forecastNb = forecastNbDict[model.name]
     
         try:
-            folderToDelete = '\\\\192.168.0.54\\testing\\downloads\\' + model.name + '\\'
+            folderToDelete = '\\\\192.168.0.54\\testing\\weather\\downloads\\' + model.name + '\\'
             #delete folders older in remote older than 2 days
             cutoff_time = datetime.now() - timedelta(days=1)
             for folder in os.listdir(folderToDelete):
@@ -158,7 +158,7 @@ def processModel(modelName, timeOutput,current_time):
             model.pngFiles = []
             for file in model.gribPaths:
                 #in same folder as grib2 (but still get same name of grib2)
-                pngPath = '\\\\192.168.0.54\\testing\\downloads\\' + model.name + '\\' + model.runEpoch + '\\' + (".".join(file.split(".")[:-1]) + ".").split("/")[-1]
+                pngPath = '\\\\192.168.0.54\\testing\\weather\\downloads\\' + model.name + '\\' + model.runEpoch + '\\' + (".".join(file.split(".")[:-1]) + ".").split("/")[-1]
                 pngPath = os.path.normpath(pngPath)
                 print(pngPath)
                 model.pngFiles.append(convert.convertFromNCToPNG(file, pngPath, model.variables, vmin=vminDict,vmax=vmaxDict, model=model.name, sharedModel = model))
